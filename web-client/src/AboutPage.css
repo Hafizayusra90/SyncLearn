@@ -1,0 +1,108 @@
+.about-page-container {
+  min-height: 100vh;
+  background-color: #0b0f19;
+  color: #f8fafc;
+  padding: 60px 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.about-header h1 {
+  font-size: 2.5rem;
+  color: #6366f1;
+  margin-bottom: 12px;
+}
+
+.about-header p {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.about-section {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 30px;
+}
+
+.about-section h2 {
+  color: #f1f5f9;
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+}
+
+.about-section p {
+  color: #94a3b8;
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+.grid-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.about-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 25px;
+}
+
+.highlight-card {
+  border-color: #6366f1;
+}
+
+.about-card h3 {
+  font-size: 1.2rem;
+  color: #f1f5f9;
+  margin-bottom: 10px;
+}
+
+.tech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.tech-badge {
+  background: #0f172a;
+  border: 1px solid #475569;
+  color: #a5b4fc;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.about-cta {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.cta-btn {
+  background: #6366f1;
+  color: #ffffff;
+  border: none;
+  padding: 12px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cta-btn:hover {
+  background: #4f46e5;
+}
