@@ -14,7 +14,7 @@ function AnalyticsPage({ onNavigate }) {
       {/* Nav */}
       <nav className="analytics-nav">
         <div className="logo-container">
-          <span className="logo-icon">🚀</span>
+          <img src="/logo.png" alt="SyncLearn" className="logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <span className="logo-text">SyncLearn Analytics</span>
         </div>
         <button 

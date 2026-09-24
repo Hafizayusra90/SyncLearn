@@ -1,0 +1,631 @@
+/* ── Video Player & YouTube Watch Party Styles ── */
+.video-player-wrapper {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto 20px auto;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+}
+
+.video-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.video-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-title-group h3 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.video-source-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.video-source-pill.youtube {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.video-source-pill.direct {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.video-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-video-action {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  color: #a5b4fc;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-video-action:hover {
+  background: rgba(99, 102, 241, 0.32);
+  color: #fff;
+  border-color: #6366f1;
+}
+
+.video-input-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.video-input-tabs {
+  display: flex;
+  gap: 8px;
+}
+.video-input-tab {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.video-input-tab.active {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+}
+
+.video-input-row {
+  display: flex;
+  gap: 8px;
+}
+.video-url-input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #090d16;
+  border: 1px solid #334155;
+  color: #fff;
+  font-size: 0.85rem;
+  outline: none;
+}
+.video-url-input:focus {
+  border-color: #6366f1;
+}
+
+.video-btn-submit {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+.video-btn-submit:hover {
+  background: #4f46e5;
+}
+
+.video-frame-container {
+  position: relative;
+  width: 100%;
+  background-color: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.65), 0 0 25px rgba(99,102,241,0.2);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.html5-video-player {
+  width: 100%;
+  display: block;
+  max-height: 520px;
+  min-height: 360px;
+  object-fit: contain;
+}
+
+.youtube-iframe-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  height: 0;
+  overflow: hidden;
+  max-height: 520px;
+}
+.youtube-iframe-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.youtube-sync-controller {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.youtube-sync-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.youtube-sync-btns {
+  display: flex;
+  gap: 8px;
+}
+.btn-yt-sync {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-yt-sync:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: #6366f1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Video Drag & Drop Upload Zone ── */
+.video-dropzone-box {
+  min-height: 380px;
+  background: radial-gradient(circle at center, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.98));
+  border: 2px dashed rgba(99, 102, 241, 0.45);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+.video-dropzone-box.dragging {
+  border-color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+  transform: scale(1.005);
+}
+.dropzone-inner {
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.dropzone-inner h3 {
+  color: #f8fafc;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+.dropzone-inner p {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  margin: 0;
+  line-height: 1.4;
+}
+.btn-browse-video {
+  background: #6366f1;
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+.btn-browse-video:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+}
+.dropzone-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 12px 0 6px 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.dropzone-divider::before, .dropzone-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dropzone-divider span {
+  padding: 0 10px;
+}
+.dropzone-yt-form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+}
+.dropzone-yt-input {
+  flex: 1;
+  background: #090d16;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  outline: none;
+}
+.dropzone-yt-input:focus {
+  border-color: #ef4444;
+}
+.dropzone-yt-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dropzone-yt-btn:hover {
+  background: #dc2626;
+}
+
+/* ── Interactive Doubt Pinning System ── */
+.btn-pin-doubt-action {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(245, 158, 11, 0.3) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.6);
+  color: #fef08a;
+  padding: 5px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+}
+.btn-pin-doubt-action:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(245, 158, 11, 0.45) 100%);
+  color: #ffffff;
+  border-color: #fbbf24;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Video Pin Modal Overlay */
+.video-pin-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 12, 24, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.18s ease-out;
+}
+
+.video-pin-modal-card {
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(180deg, #0f1c30 0%, #08111e 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.45);
+  border-radius: 14px;
+  padding: 1.2rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(245, 158, 11, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.video-pin-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.video-pin-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.video-pin-title h4 {
+  margin: 0;
+  color: #fef08a;
+  font-size: 0.98rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.video-pin-sub {
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.video-pin-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.video-pin-close-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.video-pin-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.video-pin-chip {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+  font-size: 0.74rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.video-pin-chip:hover {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: #fbbf24;
+  color: #fff;
+}
+
+.video-pin-textarea {
+  width: 100%;
+  background: #060e1a;
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #f8fafc;
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.video-pin-textarea:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.video-pin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-cancel-pin {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-cancel-pin:hover {
+  background: rgba(148, 163, 184, 0.22);
+  color: #fff;
+}
+
+.btn-confirm-pin {
+  background: linear-gradient(135deg, #ef4444 0%, #f59e0b 100%);
+  border: none;
+  color: #ffffff;
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  transition: all 0.15s;
+}
+.btn-confirm-pin:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Timeline & Pinned Doubts Bar Below Video */
+.video-timeline-doubts-bar {
+  background: rgba(6, 20, 36, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-track-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-track-progress-bar {
+  position: relative;
+  height: 10px;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: visible;
+  cursor: pointer;
+}
+
+.timeline-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #00d2ff 100%);
+  border-radius: 6px;
+  transition: width 0.15s linear;
+}
+
+.timeline-pin-marker {
+  position: absolute;
+  top: -8px;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  transition: transform 0.15s;
+}
+.timeline-pin-marker:hover {
+  transform: translateX(-50%) scale(1.35);
+  z-index: 20;
+}
+
+.timeline-pin-icon {
+  font-size: 1.1rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+
+.timeline-time-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.timeline-pins-count {
+  color: #fef08a;
+  font-weight: 600;
+}
+
+/* Pinned Doubts Chips Row */
+.video-pinned-doubts-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+}
+
+.video-chips-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.video-doubt-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.video-doubt-chip-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #f87171;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.chip-time {
+  font-weight: 700;
+  color: #fef08a;
+}
+
+.chip-sender {
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.chip-text {
+  color: #e2e8f0;
+}

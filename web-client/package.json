@@ -10,10 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "buffer": "^6.0.3",
+    "events": "^3.3.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.37.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3",
+    "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {

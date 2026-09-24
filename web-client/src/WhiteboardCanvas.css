@@ -1,0 +1,871 @@
+/* --- Whiteboard Canvas Styles --- */
+.whiteboard-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Floating Top Container */
+.wb-top-container {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 15;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: calc(100% - 16px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.4) transparent;
+  padding-bottom: 2px;
+}
+
+.wb-top-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.wb-top-container::-webkit-scrollbar-track {
+  background: rgba(6, 24, 44, 0.5);
+  border-radius: 4px;
+}
+
+.wb-top-container::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.45);
+  border-radius: 4px;
+}
+
+.wb-top-left-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+/* Whiteboard Brand Title ("Whiteboard likha aee") */
+.wb-brand-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6, 26, 48, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  padding: 6px 11px;
+  border-radius: 8px;
+  color: #f8fafc;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wb-brand-icon {
+  font-size: 0.95rem;
+}
+
+.wb-brand-text {
+  color: #ffffff;
+}
+
+/* Tools Dropdown Container */
+.wb-tools-dropdown-container {
+  position: relative;
+  pointer-events: auto;
+}
+
+/* Sleek "Tools ∨" Button Matching Reference Image (Flash ∨) */
+.wb-tools-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6, 26, 48, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #f1f5f9;
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  font-family: inherit;
+  font-size: 0.84rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.wb-tools-trigger-btn:hover {
+  background: rgba(10, 36, 68, 0.98);
+  border-color: #00e5ff;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 229, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.wb-tools-trigger-btn.open {
+  background: linear-gradient(135deg, #0284c7 0%, #00d2ff 100%);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 6px 22px rgba(0, 210, 255, 0.45);
+}
+
+.wb-tools-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.wb-tools-chevron {
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: transform 0.2s ease;
+  line-height: 1;
+}
+
+.wb-tools-trigger-btn.open .wb-tools-chevron {
+  transform: rotate(180deg);
+}
+
+/* Floating Dropdown Panel */
+.wb-tools-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 290px;
+  background: linear-gradient(180deg, rgba(8, 28, 52, 0.96) 0%, rgba(4, 18, 36, 0.98) 100%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 229, 255, 0.15);
+  padding: 14px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: wbFadeInDown 0.18s ease-out;
+}
+
+@keyframes wbFadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wb-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.wb-panel-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.wb-panel-close-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #00e5ff;
+}
+
+.wb-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wb-section-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Tools Grid */
+.wb-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.wb-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.wb-panel-btn {
+  padding: 7px 10px;
+  background: rgba(10, 36, 64, 0.8);
+  color: #cbd5e1;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.wb-panel-btn:hover:not(:disabled) {
+  background: rgba(14, 48, 86, 0.95);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+.wb-panel-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #00d2ff 100%);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 10px rgba(0, 210, 255, 0.4);
+}
+
+.wb-panel-btn.laser-active {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #f87171;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.5);
+}
+
+.wb-panel-btn.wb-btn-danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.wb-panel-btn.wb-btn-danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.wb-panel-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Colors Row */
+.wb-colors-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.wb-color-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  outline-offset: 2px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.wb-color-circle.selected {
+  outline: 2px solid #00e5ff;
+  transform: scale(1.15);
+  box-shadow: 0 0 8px #00e5ff;
+}
+
+.wb-color-picker-input {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 4px;
+}
+
+/* Slider Row */
+.wb-slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.wb-slider-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.wb-slider-label strong {
+  color: #f1f5f9;
+}
+
+.wb-width-slider {
+  flex: 1;
+  cursor: pointer;
+  accent-color: #00d2ff;
+}
+
+/* Image 3 Fix: Student View Synced Pill (Clean horizontal badge, never turns into weird oval) */
+.wb-student-sync-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(6, 26, 48, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(16, 185, 129, 0.45);
+  color: #34d399;
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wb-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: wbPulseGlow 1.8s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes wbPulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* Floating Right Actions Bar (Always Visible Download & Clear) */
+.wb-actions-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6, 26, 48, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.wb-toolbar::-webkit-scrollbar {
+  height: 4px;
+}
+.wb-toolbar::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.35);
+  border-radius: 4px;
+}
+
+/* Toolbar Buttons */
+.wb-btn {
+  padding: 5px 10px;
+  background: rgba(10, 36, 64, 0.8);
+  color: #cbd5e1;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wb-btn:hover:not(:disabled) {
+  background: rgba(14, 48, 86, 0.95);
+  color: #fff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+.wb-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.wb-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #00d2ff 100%);
+  color: #fff;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 10px rgba(0, 210, 255, 0.4);
+}
+
+.wb-btn.laser-active {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.5);
+}
+
+.wb-btn.btn-danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+.wb-btn.btn-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.wb-btn.btn-export {
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+.wb-btn.btn-export:hover {
+  background: #22c55e;
+  color: #fff;
+}
+
+.wb-separator {
+  width: 1px;
+  height: 22px;
+  background: #334155;
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+/* Laser Pointer Overlay */
+.laser-pointer-dot {
+  width: 14px;
+  height: 14px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ef4444, 0 0 20px rgba(239, 68, 68, 0.9);
+  position: relative;
+}
+
+.laser-pointer-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(239, 68, 68, 0.7);
+  animation: laser-pulse 1.2s infinite ease-out;
+}
+
+@keyframes laser-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.laser-pointer-label {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.9);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 1px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+/* Floating Toast inside Whiteboard */
+.wb-toast {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #e2e8f0;
+  padding: 8px 18px;
+  border-radius: 99px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 30;
+  animation: wb-fade-in 0.2s ease-out;
+}
+
+@keyframes wb-fade-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ─── Dual Mode Split Workspace ─── */
+.wb-split-workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  padding-top: 0;
+}
+
+.wb-hamburger-btn {
+  background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
+  color: #ffffff !important;
+  border-color: #6366f1 !important;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wb-hamburger-btn:hover {
+  background: #4338ca !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.6);
+}
+
+.bullet-dropdown-menu {
+  animation: wb-fade-in 0.15s ease-out;
+}
+
+/* Left Typing Pad Panel */
+.wb-typing-panel {
+  width: 380px;
+  min-width: 320px;
+  max-width: 440px;
+  background: linear-gradient(180deg, rgba(8, 28, 52, 0.96) 0%, rgba(4, 18, 36, 0.98) 100%);
+  border-right: 1.5px solid rgba(56, 189, 248, 0.3);
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+  gap: 10px;
+  z-index: 10;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  overflow-y: auto;
+}
+
+.wb-typing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.wb-export-notes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.wb-export-notes-btn:hover {
+  background: #22c55e;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.35);
+  transform: translateY(-1px);
+}
+
+.wb-live-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(2, 132, 199, 0.25);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+/* Typing Tools Toggle Button (Tools ∨) */
+.wb-typing-tools-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  background: rgba(10, 36, 64, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  color: #f1f5f9;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.wb-typing-tools-btn:hover {
+  background: rgba(14, 48, 86, 0.9);
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+.wb-typing-tools-btn.open {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.3), rgba(0, 229, 255, 0.15));
+  border-color: #00e5ff;
+}
+
+.typing-tools-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.typing-tools-arrow {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.wb-typing-tools-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(6, 24, 44, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 8px;
+  animation: wbFadeInDown 0.16s ease-out;
+}
+
+/* Quick Format Preset Chips */
+.wb-typing-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.preset-chip {
+  background: rgba(10, 36, 64, 0.8);
+  color: #cbd5e1;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-chip:hover {
+  background: rgba(14, 48, 86, 0.95);
+  color: #fff;
+  border-color: #00e5ff;
+}
+
+/* Typing Controls Row */
+.wb-typing-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: rgba(10, 36, 64, 0.7);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.typing-select {
+  background: rgba(6, 22, 40, 0.9);
+  color: #f8fafc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  outline: none;
+}
+
+.typing-color-picker {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+}
+
+.typing-clear-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.typing-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Multi-line Keyboard Typing Textarea */
+.wb-typing-textarea {
+  flex: 1;
+  min-height: 180px;
+  background: rgba(4, 18, 34, 0.9);
+  color: #f1f5f9;
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s;
+}
+
+.wb-typing-textarea:focus {
+  border-color: #00e5ff;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(0, 229, 255, 0.25);
+}
+
+/* Action Footer */
+.wb-typing-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn-stamp-board {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #0284c7 0%, #00d2ff 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 210, 255, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-stamp-board:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 210, 255, 0.55);
+}
+
+.btn-stamp-board:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.wb-typing-hint {
+  font-size: 0.68rem;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Right Canvas Viewport */
+.wb-canvas-viewport {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background: #051424;
+}
+
+/* Student Notes Live Display */
+.wb-student-notes-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  gap: 10px;
+}
+
+.wb-student-notes-card {
+  flex: 1;
+  min-height: 220px;
+  background: rgba(4, 18, 34, 0.9);
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  padding: 14px;
+  overflow-y: auto;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.wb-student-notes-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  line-height: 1.6;
+}
+
+.wb-student-notes-footer {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-align: center;
+  padding: 4px;
+}
+
