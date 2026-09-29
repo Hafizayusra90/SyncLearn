@@ -1071,6 +1071,20 @@ function ActiveRoomPage({
       setPinnedDoubts(prev => prev.filter(d => d.id !== doubtId));
     });
 
+    // ── Workspace View Synchronization & Video Auto-Open ──
+    socket.on('workspace-view-sync', (data) => {
+      if (data?.view) {
+        setWorkspaceView(data.view);
+        const viewLabel = data.view === 'video' ? '🎬 Lecture Video & YouTube' : data.view === 'whiteboard' ? '🎨 Dual Whiteboard' : data.view === 'cameras' ? '👥 Camera Grid' : 'Unified All View';
+        showToast(`📺 Teacher switched workspace view to: ${viewLabel}`, 'info');
+      }
+    });
+
+    socket.on('video-source-change', (data) => {
+      setWorkspaceView('video');
+      showToast(`🎬 Teacher started video: ${data?.videoTitle || 'YouTube Stream'}`, 'info');
+    });
+
     // ── Category 1: AI Quiz Events ──
     socket.on('room-quiz-published', (quiz) => {
       setActiveQuizData(quiz);
@@ -1133,6 +1147,7 @@ function ActiveRoomPage({
       socket.off('room-participants-update'); socket.off('room-lock-status');
       socket.off('room-locked-error');
       socket.off('doubt-pinned'); socket.off('doubt-resolved');
+      socket.off('workspace-view-sync'); socket.off('video-source-change');
       socket.off('room-quiz-published');
       socket.off('student-hand-raised'); socket.off('student-hand-lowered');
       socket.off('peer-engagement-stat');
@@ -1728,6 +1743,22 @@ function ActiveRoomPage({
     setSelectedFile(null);
   };
 
+  // Synchronized Workspace View Switching (Instructor sets view for all, or local override)
+  const handleSetWorkspaceView = (newView, broadcast = true) => {
+    setWorkspaceView(newView);
+    if (broadcast && isInstructor) {
+      const cleanRoom = cleanRoomId(roomId);
+      socket.emit('workspace-view-sync', { roomId: cleanRoom, view: newView });
+    }
+  };
+
+  const handleJumpToVideoMoment = (timestamp, formattedTime) => {
+    handleSetWorkspaceView('video', true);
+    const cleanRoom = cleanRoomId(roomId);
+    socket.emit('seek-to-video-time', { roomId: cleanRoom, timestamp });
+    showToast(`🎬 Video sought to ${formattedTime || Math.floor(timestamp) + 's'}`);
+  };
+
   const handleAddPinnedDoubt = (doubt) => {
     if (!doubt) return;
     setPinnedDoubts(prev => {
@@ -1736,7 +1767,23 @@ function ActiveRoomPage({
     });
     const cleanRoom = cleanRoomId(roomId);
     socket.emit('pin-doubt', { roomId: cleanRoom, doubt });
-    showToast(`📍 Doubt pinned at ${doubt.videoTimeFormatted || 'video'}!`);
+
+    // CRITICAL: Automatically post this doubt question into the live Room Chat!
+    const doubtChatMsg = {
+      id: doubt.id || ('doubt_msg_' + Date.now()),
+      roomId: cleanRoom,
+      senderName: doubt.senderName || (isInstructor ? 'Instructor' : 'Student'),
+      senderRole: doubt.senderRole || 'student',
+      message: doubt.text,
+      doubtQuestion: doubt.text,
+      videoTimestamp: doubt.videoTimestamp,
+      videoTimeFormatted: doubt.videoTimeFormatted,
+      isDoubt: true,
+      doubtId: doubt.id,
+      time: doubt.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    socket.emit('send-message', doubtChatMsg);
+    showToast(`📍 Doubt question pinned & sent to Instructor in Chat! (${doubt.videoTimeFormatted || 'video'})`, 'success');
   };
 
   const handlePinDoubt = (msg) => {
@@ -1751,6 +1798,8 @@ function ActiveRoomPage({
       senderRole: msg.senderRole || 'student',
       text: msg.message || (msg.file ? `[Attachment: ${msg.file.name}]` : 'Doubt question'),
       time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      videoTimestamp: typeof msg.videoTimestamp === 'number' ? msg.videoTimestamp : undefined,
+      videoTimeFormatted: msg.videoTimeFormatted || undefined,
     };
     setPinnedDoubts(prev => [doubt, ...prev]);
     const cleanRoom = cleanRoomId(roomId);
@@ -1762,6 +1811,19 @@ function ActiveRoomPage({
     setPinnedDoubts(prev => prev.filter(d => d.id !== doubtId));
     const cleanRoom = cleanRoomId(roomId);
     socket.emit('resolve-doubt', { roomId: cleanRoom, doubtId });
+
+    // Post an affirmative resolve confirmation in chat
+    socket.emit('send-message', {
+      id: 'resolve_notice_' + Date.now(),
+      roomId: cleanRoom,
+      senderName: user?.name || (isInstructor ? 'Instructor' : 'Host'),
+      senderRole: isInstructor ? 'instructor' : 'student',
+      message: `✅ Instructor marked doubt question as RESOLVED.`,
+      isResolvedNotice: true,
+      resolvedDoubtId: doubtId,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+
     showToast('✅ Doubt marked as resolved');
   };
 
@@ -2042,7 +2104,7 @@ function ActiveRoomPage({
                 <button
                   type="button"
                   className={`dock-nav-btn ${workspaceView === 'whiteboard' ? 'active' : ''}`}
-                  onClick={() => setWorkspaceView('whiteboard')}
+                  onClick={() => handleSetWorkspaceView('whiteboard')}
                   title="Dual Whiteboard: Keyboard Typing on left, Live Canvas on right"
                 >
                   <div className="dock-btn-left">
@@ -2059,7 +2121,7 @@ function ActiveRoomPage({
                 <button
                   type="button"
                   className={`dock-nav-btn ${workspaceView === 'cameras' ? 'active' : ''}`}
-                  onClick={() => setWorkspaceView('cameras')}
+                  onClick={() => handleSetWorkspaceView('cameras')}
                   title="Camera & Video Call Grid"
                 >
                   <div className="dock-btn-left">
@@ -2076,7 +2138,7 @@ function ActiveRoomPage({
                 <button
                   type="button"
                   className={`dock-nav-btn ${workspaceView === 'video' ? 'active' : ''}`}
-                  onClick={() => setWorkspaceView('video')}
+                  onClick={() => handleSetWorkspaceView('video')}
                   title="Load YouTube or Drag-and-Drop Lecture Video"
                 >
                   <div className="dock-btn-left">
@@ -2093,7 +2155,7 @@ function ActiveRoomPage({
                 <button
                   type="button"
                   className={`dock-nav-btn ${workspaceView === 'all' ? 'active' : ''}`}
-                  onClick={() => setWorkspaceView('all')}
+                  onClick={() => handleSetWorkspaceView('all')}
                   title="Show All-In-One Unified View"
                 >
                   <div className="dock-btn-left">
@@ -2250,11 +2312,7 @@ function ActiveRoomPage({
                                 {typeof d.videoTimestamp === 'number' && (
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setWorkspaceView('video');
-                                      socket.emit('seek-to-video-time', { roomId, timestamp: d.videoTimestamp });
-                                      showToast(`⏩ Video sought to ${d.videoTimeFormatted || Math.floor(d.videoTimestamp) + 's'}`);
-                                    }}
+                                    onClick={() => handleJumpToVideoMoment(d.videoTimestamp, d.videoTimeFormatted)}
                                     style={{
                                       background: 'rgba(245, 158, 11, 0.15)',
                                       border: '1px solid rgba(245, 158, 11, 0.5)',
@@ -2273,10 +2331,10 @@ function ActiveRoomPage({
                                 <button
                                   type="button"
                                   className="btn-unpin-doubt"
-                                  onClick={() => handleUnpinDoubt(d.id)}
-                                  title="Unpin doubt"
+                                  onClick={() => handleResolveDoubt(d.id)}
+                                  title="Mark doubt as resolved"
                                 >
-                                  ✕
+                                  ✅
                                 </button>
                               </div>
                             </div>
@@ -2321,12 +2379,68 @@ function ActiveRoomPage({
                               {/* Doubt Chip */}
                               {msg.isDoubt && (
                                 <div className="doubt-tag-chip">
-                                  ❓ DOUBT QUESTION
+                                  <span>❓ DOUBT QUESTION</span>
+                                  {typeof msg.videoTimestamp === 'number' && (
+                                    <span style={{ marginLeft: 6, background: 'rgba(245, 158, 11, 0.3)', padding: '1px 5px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 800 }}>
+                                      🎬 {msg.videoTimeFormatted || `${Math.floor(msg.videoTimestamp)}s`}
+                                    </span>
+                                  )}
                                 </div>
                               )}
 
                               {/* Text message */}
-                              {msg.message && <div>{msg.message}</div>}
+                              {msg.message && <div style={msg.isDoubt ? { fontWeight: 600, marginTop: 4 } : {}}>{msg.message}</div>}
+
+                              {/* Doubt Interactive Action Bar (Jump to Video & Resolve) */}
+                              {msg.isDoubt && (
+                                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                  {typeof msg.videoTimestamp === 'number' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleJumpToVideoMoment(msg.videoTimestamp, msg.videoTimeFormatted)}
+                                      style={{
+                                        background: 'rgba(245, 158, 11, 0.25)',
+                                        border: '1px solid rgba(245, 158, 11, 0.6)',
+                                        color: '#fbbf24',
+                                        padding: '4px 10px',
+                                        borderRadius: 6,
+                                        fontSize: '0.72rem',
+                                        cursor: 'pointer',
+                                        fontWeight: 700,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4
+                                      }}
+                                      title="Jump video to this doubt timestamp"
+                                    >
+                                      ▶ Jump to Video ({msg.videoTimeFormatted || `${Math.floor(msg.videoTimestamp)}s`})
+                                    </button>
+                                  )}
+
+                                  {isInstructor && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResolveDoubt(msg.doubtId || msg.id)}
+                                      style={{
+                                        background: 'rgba(34, 197, 94, 0.25)',
+                                        border: '1px solid rgba(34, 197, 94, 0.6)',
+                                        color: '#4ade80',
+                                        padding: '4px 10px',
+                                        borderRadius: 6,
+                                        fontSize: '0.72rem',
+                                        cursor: 'pointer',
+                                        fontWeight: 700,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4
+                                      }}
+                                      title="Mark doubt as resolved"
+                                    >
+                                      ✅ Resolve Doubt
+                                    </button>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Attached File Preview */}
                               {msg.file && (
@@ -3045,10 +3159,32 @@ function ActiveRoomPage({
             type="button"
             className={`zoom-main-btn ${activeTab === 'chat' ? 'active-tab-btn' : ''}`}
             onClick={() => setActiveTab(prev => prev === 'chat' ? null : 'chat')}
-            title="Open Live Chat"
+            title={pinnedDoubts.length > 0 ? `${pinnedDoubts.length} un-resolved doubt(s) pinned` : "Open Live Chat"}
           >
-            <div className="zoom-btn-icon">💬</div>
-            <span className="zoom-btn-label">Chat</span>
+            <div className="zoom-btn-icon" style={{ position: 'relative' }}>
+              💬
+              {pinnedDoubts.length > 0 && activeTab !== 'chat' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -6,
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    padding: '1px 5px',
+                    fontSize: '0.62rem',
+                    fontWeight: 800,
+                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
+                  }}
+                >
+                  {pinnedDoubts.length}
+                </span>
+              )}
+            </div>
+            <span className="zoom-btn-label">
+              Chat {pinnedDoubts.length > 0 && activeTab !== 'chat' ? `(${pinnedDoubts.length})` : ''}
+            </span>
           </button>
         </div>
 
@@ -3071,7 +3207,7 @@ function ActiveRoomPage({
             <button
               type="button"
               className={`zoom-main-btn ${workspaceView === 'whiteboard' ? 'active-tab-btn' : ''}`}
-              onClick={() => setWorkspaceView(v => v === 'whiteboard' ? 'all' : 'whiteboard')}
+              onClick={() => handleSetWorkspaceView(workspaceView === 'whiteboard' ? 'all' : 'whiteboard')}
               title="Toggle Whiteboard Studio"
             >
               <div className="zoom-btn-icon">✏️</div>
@@ -3085,7 +3221,7 @@ function ActiveRoomPage({
           <button
             type="button"
             className={`zoom-main-btn ${workspaceView === 'video' ? 'active-tab-btn' : ''}`}
-            onClick={() => setWorkspaceView(v => v === 'video' ? 'all' : 'video')}
+            onClick={() => handleSetWorkspaceView(workspaceView === 'video' ? 'all' : 'video')}
             title="Lecture Video & YouTube Sync"
           >
             <div className="zoom-btn-icon">🎬</div>

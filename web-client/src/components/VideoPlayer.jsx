@@ -20,6 +20,27 @@ export function formatVideoTime(secs) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
+export const EDUCATIONAL_PRESETS = [
+  {
+    title: '⚡ React in 100 Seconds',
+    url: 'https://www.youtube.com/watch?v=Tn6-PIqc4UM',
+    id: 'Tn6-PIqc4UM',
+    badge: 'Popular Demo'
+  },
+  {
+    title: '📦 Data Structures in 100 Seconds',
+    url: 'https://www.youtube.com/watch?v=RBSGKlAnoiM',
+    id: 'RBSGKlAnoiM',
+    badge: 'Computer Science'
+  },
+  {
+    title: '🌐 WebRTC & Realtime Sync',
+    url: 'https://www.youtube.com/watch?v=2JYT5f2isg4',
+    id: '2JYT5f2isg4',
+    badge: 'Networking'
+  }
+];
+
 const VideoPlayer = ({
   roomId,
   isInstructor = false,
@@ -119,20 +140,29 @@ const VideoPlayer = ({
   // Listen for remote video source updates (YouTube URL / Lecture Video change broadcast)
   useEffect(() => {
     const handleRemoteSourceChange = (data) => {
+      if (!data) return;
       if (data.mediaType === 'youtube') {
         setMediaType('youtube');
         setYtVideoId(data.ytVideoId);
+        if (data.videoTitle) setVideoFileName(data.videoTitle);
       } else {
         setMediaType('direct');
         setVideoSrc(data.videoSrc);
+        if (data.videoTitle) setVideoFileName(data.videoTitle);
       }
     };
 
     socket.on('video-source-change', handleRemoteSourceChange);
+    // Request current room video state if joining active session
+    const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    if (cleanRoom) {
+      socket.emit('request-video-state', { roomId: cleanRoom });
+    }
+
     return () => {
       socket.off('video-source-change', handleRemoteSourceChange);
     };
-  }, []);
+  }, [roomId]);
 
   // Listen for YouTube sync commands from instructor
   useEffect(() => {
@@ -140,12 +170,25 @@ const VideoPlayer = ({
       if (mediaType !== 'youtube' || !ytPlayerRef.current) return;
       if (typeof ytPlayerRef.current.getPlayerState !== 'function') return;
 
-      if (data.type === 'play') {
-        ytPlayerRef.current.playVideo();
-      } else if (data.type === 'pause') {
-        ytPlayerRef.current.pauseVideo();
-      } else if (data.type === 'seek' && typeof data.timestamp === 'number') {
-        ytPlayerRef.current.seekTo(data.timestamp, true);
+      try {
+        if (data.type === 'play') {
+          if (typeof data.timestamp === 'number') {
+            const cur = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
+            if (Math.abs(cur - data.timestamp) > 1.5) {
+              ytPlayerRef.current.seekTo(data.timestamp, true);
+            }
+          }
+          ytPlayerRef.current.playVideo && ytPlayerRef.current.playVideo();
+        } else if (data.type === 'pause') {
+          if (typeof data.timestamp === 'number') {
+            ytPlayerRef.current.seekTo(data.timestamp, true);
+          }
+          ytPlayerRef.current.pauseVideo && ytPlayerRef.current.pauseVideo();
+        } else if (data.type === 'seek' && typeof data.timestamp === 'number') {
+          ytPlayerRef.current.seekTo(data.timestamp, true);
+        }
+      } catch (err) {
+        console.warn('YouTube sync event error:', err);
       }
     };
 
@@ -188,19 +231,25 @@ const VideoPlayer = ({
             controls: 1,
             modestbranding: 1,
             rel: 0,
+            enablejsapi: 1,
+            playsinline: 1,
             origin: window.location.origin
           },
           events: {
             onStateChange: (event) => {
-              // 1: Playing, 2: Paused
               if (!isInstructor) return;
-              if (event.data === 1) {
+              try {
                 const cur = ytPlayerRef.current?.getCurrentTime() || 0;
-                socket.emit('video-state-change', { roomId, type: 'play', timestamp: cur });
-              } else if (event.data === 2) {
-                const cur = ytPlayerRef.current?.getCurrentTime() || 0;
-                socket.emit('video-state-change', { roomId, type: 'pause', timestamp: cur });
-              }
+                const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+                // 1: Playing, 2: Paused, 3: Buffering/Seeking
+                if (event.data === 1) {
+                  socket.emit('video-state-change', { roomId: cleanRoom, type: 'play', timestamp: cur });
+                } else if (event.data === 2) {
+                  socket.emit('video-state-change', { roomId: cleanRoom, type: 'pause', timestamp: cur });
+                } else if (event.data === 3) {
+                  socket.emit('video-state-change', { roomId: cleanRoom, type: 'seek', timestamp: cur });
+                }
+              } catch (e) {}
             }
           }
         });
@@ -344,30 +393,59 @@ const VideoPlayer = ({
     if (videoRef.current) setDuration(videoRef.current.duration);
   };
 
+  // Load Quick Preset Educational Video (1-Click for Teacher)
+  const loadPresetVideo = (preset) => {
+    if (!preset) return;
+    const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
+    setMediaType('youtube');
+    setYtVideoId(preset.id);
+    setVideoFileName(preset.title);
+    setShowUrlInput(false);
+
+    socket.emit('video-source-change', {
+      roomId: cleanRoom,
+      mediaType: 'youtube',
+      ytVideoId: preset.id,
+      videoTitle: preset.title,
+      instructorName: user?.name || 'Instructor'
+    });
+    // Automatically bring all students to the video window
+    socket.emit('workspace-view-sync', { roomId: cleanRoom, view: 'video' });
+  };
+
   // Submit new media URL
   const handleUpdateMedia = (e) => {
-    e.preventDefault();
+    e && e.preventDefault();
     const cleanUrl = inputUrl.trim();
     if (!cleanUrl) return;
 
+    const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
     const extractedYtId = getYouTubeId(cleanUrl);
 
     if (extractedYtId) {
       setMediaType('youtube');
       setYtVideoId(extractedYtId);
+      setVideoFileName('YouTube Lecture Video');
       socket.emit('video-source-change', {
-        roomId,
+        roomId: cleanRoom,
         mediaType: 'youtube',
-        ytVideoId: extractedYtId
+        ytVideoId: extractedYtId,
+        videoTitle: 'YouTube Lecture Video',
+        instructorName: user?.name || 'Instructor'
       });
+      socket.emit('workspace-view-sync', { roomId: cleanRoom, view: 'video' });
     } else {
       setMediaType('direct');
       setVideoSrc(cleanUrl);
+      setVideoFileName('Direct Video Stream');
       socket.emit('video-source-change', {
-        roomId,
+        roomId: cleanRoom,
         mediaType: 'direct',
-        videoSrc: cleanUrl
+        videoSrc: cleanUrl,
+        videoTitle: 'Direct Video Stream',
+        instructorName: user?.name || 'Instructor'
       });
+      socket.emit('workspace-view-sync', { roomId: cleanRoom, view: 'video' });
     }
 
     setInputUrl('');
@@ -377,16 +455,18 @@ const VideoPlayer = ({
   // Manual YouTube sync triggers for Host
   const syncHostYtPlay = () => {
     if (!ytPlayerRef.current) return;
+    const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
     const cur = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
     ytPlayerRef.current.playVideo && ytPlayerRef.current.playVideo();
-    socket.emit('video-state-change', { roomId, type: 'play', timestamp: cur });
+    socket.emit('video-state-change', { roomId: cleanRoom, type: 'play', timestamp: cur });
   };
 
   const syncHostYtPause = () => {
     if (!ytPlayerRef.current) return;
+    const cleanRoom = String(roomId || '').replace(/[^a-zA-Z0-9_-]/g, '').trim();
     const cur = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
     ytPlayerRef.current.pauseVideo && ytPlayerRef.current.pauseVideo();
-    socket.emit('video-state-change', { roomId, type: 'pause', timestamp: cur });
+    socket.emit('video-state-change', { roomId: cleanRoom, type: 'pause', timestamp: cur });
   };
 
   // Merge prop pinnedDoubts and local optimistic doubts (deduplicated by ID)
@@ -491,6 +571,32 @@ const VideoPlayer = ({
               Load Video 🚀
             </button>
           </form>
+
+          {/* 1-Click Educational Presets for Teachers & Instant Testing */}
+          <div className="video-presets-row" style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>⚡ 1-Click Educational Demo Videos:</span>
+            {EDUCATIONAL_PRESETS.map((p, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="btn-preset-chip"
+                onClick={() => loadPresetVideo(p)}
+                style={{
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  color: '#60a5fa',
+                  padding: '3px 10px',
+                  borderRadius: 20,
+                  fontSize: '0.73rem',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+                title={`Load ${p.title}`}
+              >
+                {p.title}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -545,6 +651,33 @@ const VideoPlayer = ({
                   ▶ Load YouTube
                 </button>
               </form>
+
+              {/* Quick 1-Click Presets in Dropzone */}
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>OR SELECT A PRESET LECTURE DEMO:</span>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {EDUCATIONAL_PRESETS.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => loadPresetVideo(p)}
+                      style={{
+                        background: 'rgba(99, 102, 241, 0.12)',
+                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                        color: '#a5b4fc',
+                        padding: '4px 12px',
+                        borderRadius: 20,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                      title={`Instant Launch: ${p.title}`}
+                    >
+                      ▶ {p.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : mediaType === 'youtube' && ytVideoId ? (
@@ -553,24 +686,47 @@ const VideoPlayer = ({
               <div id="synclearn-yt-iframe" ref={iframeRef}></div>
             </div>
 
-            {/* Host Sync Bar for YouTube */}
+            {/* Host & Student Sync Bar for YouTube */}
             <div className="youtube-sync-controller">
               <div className="youtube-sync-title">
                 <span>🔴 YouTube Watch Party Room</span>
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                  {isInstructor ? '(You have Host Sync controls)' : '(Synced with Teacher)'}
+                  {isInstructor ? '(You have Host Sync controls)' : '(🟢 Synced with Teacher)'}
                 </span>
               </div>
-              {isInstructor && (
-                <div className="youtube-sync-btns">
-                  <button type="button" className="btn-yt-sync" onClick={syncHostYtPlay} title="Force Play on all student screens">
-                    ▶ Force Sync Play
-                  </button>
-                  <button type="button" className="btn-yt-sync" onClick={syncHostYtPause} title="Force Pause on all student screens">
-                    ⏸ Force Sync Pause
-                  </button>
-                </div>
-              )}
+              <div className="youtube-sync-btns" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-pin-doubt-action"
+                  onClick={handleOpenPinModal}
+                  style={{
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                  title="Ask a doubt or question at this video moment"
+                >
+                  📍 Pin Doubt ({formatVideoTime(currentTime)})
+                </button>
+                {isInstructor && (
+                  <>
+                    <button type="button" className="btn-yt-sync" onClick={syncHostYtPlay} title="Force Play on all student screens">
+                      ▶ Force Sync Play
+                    </button>
+                    <button type="button" className="btn-yt-sync" onClick={syncHostYtPause} title="Force Pause on all student screens">
+                      ⏸ Force Sync Pause
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ) : (

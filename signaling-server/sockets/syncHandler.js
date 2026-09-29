@@ -3,6 +3,8 @@ const Room = require('../models/Room');
 // In-memory room state
 const lockedRooms = new Set();
 const roomUsers = new Map(); // roomId -> Map(socketId -> userObj)
+const roomVideoStates = new Map(); // roomId -> { mediaType, ytVideoId, videoSrc, currentTime, isPlaying, videoTitle }
+const roomWorkspaceViews = new Map(); // roomId -> view
 
 const sanitizeRoomId = (raw) => {
   if (!raw) return '';
@@ -116,6 +118,14 @@ const syncHandler = (io, socket) => {
       userRole: userRole || 'student',
       totalCount: currentRoomMap.size
     });
+
+    // Send existing workspace view & video state to newly joined user
+    if (roomWorkspaceViews.has(roomId)) {
+      socket.emit('workspace-view-sync', { view: roomWorkspaceViews.get(roomId) });
+    }
+    if (roomVideoStates.has(roomId)) {
+      socket.emit('video-source-change', roomVideoStates.get(roomId));
+    }
   });
 
   // ── Host Controls: Mute All ──
@@ -375,11 +385,61 @@ const syncHandler = (io, socket) => {
 
   // ── Synchronized Video Player & YouTube Collaboration ──
   socket.on('video-state-change', (data) => {
-    socket.to(data.roomId).emit('video-state-change', data);
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom) {
+      if (roomVideoStates.has(targetRoom)) {
+        const current = roomVideoStates.get(targetRoom);
+        current.isPlaying = data.type === 'play';
+        if (typeof data.timestamp === 'number') current.currentTime = data.timestamp;
+      }
+      socket.to(targetRoom).emit('video-state-change', data);
+      const altRoom = targetRoom.replace(/-/g, '');
+      if (altRoom && altRoom !== targetRoom) {
+        socket.to(altRoom).emit('video-state-change', data);
+      }
+    }
   });
 
   socket.on('video-source-change', (data) => {
-    socket.to(data.roomId).emit('video-source-change', data);
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom) {
+      roomVideoStates.set(targetRoom, {
+        mediaType: data.mediaType,
+        ytVideoId: data.ytVideoId || '',
+        videoSrc: data.videoSrc || '',
+        videoTitle: data.videoTitle || 'Lecture Video',
+        currentTime: 0,
+        isPlaying: false,
+        instructorName: data.instructorName || 'Instructor'
+      });
+      // Broadcast to all other peers in the room
+      socket.to(targetRoom).emit('video-source-change', data);
+      const altRoom = targetRoom.replace(/-/g, '');
+      if (altRoom && altRoom !== targetRoom) {
+        socket.to(altRoom).emit('video-source-change', data);
+      }
+    }
+  });
+
+  // ── Real-time Workspace View Sync (Instructor switches to Video, Whiteboard, or Cameras) ──
+  socket.on('workspace-view-sync', (data) => {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom && data?.view) {
+      roomWorkspaceViews.set(targetRoom, data.view);
+      socket.to(targetRoom).emit('workspace-view-sync', data);
+      const altRoom = targetRoom.replace(/-/g, '');
+      if (altRoom && altRoom !== targetRoom) {
+        socket.to(altRoom).emit('workspace-view-sync', data);
+      }
+    }
+  });
+
+  // ── Request current Video & Workspace state for newly joined users ──
+  socket.on('request-video-state', (data) => {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom && roomVideoStates.has(targetRoom)) {
+      socket.emit('video-source-change', roomVideoStates.get(targetRoom));
+    }
   });
 
   // ── 3D Model Viewer Sync (Rotation + Zoom) ──
