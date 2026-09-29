@@ -666,6 +666,7 @@ function ActiveRoomPage({
   // ── Category 1: AI Quiz, AI Co-Teacher & Engagement States ──
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
   const [activeQuizData, setActiveQuizData]   = useState(null);
+  const [currentLectureTopic, setCurrentLectureTopic] = useState('WebRTC & Real-Time Sync');
   const [hasHandRaised, setHasHandRaised]     = useState(false);
   const [handRaisedUsers, setHandRaisedUsers] = useState({}); // { socketId: { studentName, time } }
   const [engagementStats, setEngagementStats] = useState({}); // { socketId: { isFocused, score } }
@@ -1083,6 +1084,9 @@ function ActiveRoomPage({
 
     socket.on('video-source-change', (data) => {
       setWorkspaceView('video');
+      if (data?.videoTitle) {
+        setCurrentLectureTopic(data.videoTitle);
+      }
       showToast(`🎬 Teacher started video: ${data?.videoTitle || 'YouTube Stream'}`, 'info');
     });
 
@@ -1090,7 +1094,7 @@ function ActiveRoomPage({
     socket.on('room-quiz-published', (quiz) => {
       setActiveQuizData(quiz);
       setIsQuizModalOpen(true);
-      showToast(`📝 Pop Quiz Launched: "${quiz.title || 'Lecture Quiz'}"!`, 'info');
+      showToast(`📝 Pop Quiz on "${quiz.topic || quiz.title || 'Lecture'}" Launched!`, 'info');
     });
 
     // ── Category 1: Hand Raise Events ──
@@ -2161,16 +2165,19 @@ function ActiveRoomPage({
             {/* 9. AI Quiz Generator / Take Quiz */}
             <button
               type="button"
-              className="sidebar-nav-item"
+              className={`sidebar-nav-item ${activeQuizData && !isInstructor ? 'active' : ''}`}
               onClick={() => setIsQuizModalOpen(true)}
-              title={isInstructor ? "Launch AI Lecture Pop Quiz" : "Take AI Lecture Quiz"}
+              title={isInstructor ? "Launch AI Lecture Pop Quiz on Current Topic" : (activeQuizData ? `Take Live Quiz: ${activeQuizData.topic || 'Active'}` : "Take AI Lecture Quiz")}
             >
               <span className="sidebar-item-icon">📝</span>
               {!isSidebarCollapsed && (
                 <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : 'Take AI Quiz'}</span>
-                  <span className="sidebar-item-sub">Lecture Assessment</span>
+                  <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : (activeQuizData ? `Quiz: ${activeQuizData.topic || 'Active'}` : 'Take AI Quiz')}</span>
+                  <span className="sidebar-item-sub">{isInstructor ? 'Topic-Based Quiz' : (activeQuizData ? '1 Live Quiz Available' : 'Lecture Assessment')}</span>
                 </div>
+              )}
+              {!isSidebarCollapsed && activeQuizData && !isInstructor && (
+                <span className="sidebar-item-badge amber">LIVE</span>
               )}
             </button>
 
@@ -3604,12 +3611,14 @@ function ActiveRoomPage({
         onClose={() => setIsQuizModalOpen(false)}
         isHost={isInstructor}
         transcription={transcription.map(t => t.text).join('. ')}
+        currentVideoTitle={currentLectureTopic}
         socket={socket}
         roomId={roomId}
         userName={user?.name || (isInstructor ? 'Instructor' : 'Student')}
         activeQuizData={activeQuizData}
-        onQuizPublished={(questions) => {
-          showToast(`🚀 Quiz with ${questions.length} questions launched to classroom!`);
+        onQuizPublished={(publishedQuiz) => {
+          setActiveQuizData(publishedQuiz);
+          showToast(`🚀 Quiz on "${publishedQuiz?.topic || 'Lecture'}" launched to classroom!`, 'success');
         }}
       />
 

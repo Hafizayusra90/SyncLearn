@@ -5,6 +5,7 @@ const lockedRooms = new Set();
 const roomUsers = new Map(); // roomId -> Map(socketId -> userObj)
 const roomVideoStates = new Map(); // roomId -> { mediaType, ytVideoId, videoSrc, currentTime, isPlaying, videoTitle }
 const roomWorkspaceViews = new Map(); // roomId -> view
+const roomActiveQuizzes = new Map(); // roomId -> active quiz object
 
 const sanitizeRoomId = (raw) => {
   if (!raw) return '';
@@ -125,6 +126,9 @@ const syncHandler = (io, socket) => {
     }
     if (roomVideoStates.has(roomId)) {
       socket.emit('video-source-change', roomVideoStates.get(roomId));
+    }
+    if (roomActiveQuizzes.has(roomId)) {
+      socket.emit('room-quiz-published', roomActiveQuizzes.get(roomId));
     }
   });
 
@@ -450,6 +454,39 @@ const syncHandler = (io, socket) => {
   // ── Timeline Annotation Pins ──
   socket.on('pin-annotation', (data) => {
     socket.to(data.roomId).emit('pin-annotation', data);
+  });
+
+  // ── AI Lecture Quiz Sync & Live Leaderboard ──
+  socket.on('publish-quiz', (data) => {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom && data?.quiz) {
+      roomActiveQuizzes.set(targetRoom, data.quiz);
+      io.to(targetRoom).emit('room-quiz-published', data.quiz);
+      const altRoom = targetRoom.replace(/-/g, '');
+      if (altRoom && altRoom !== targetRoom) {
+        io.to(altRoom).emit('room-quiz-published', data.quiz);
+      }
+      console.log(`📝 Quiz on topic "${data.quiz.topic || data.quiz.title}" published to room ${targetRoom}`);
+    }
+  });
+
+  socket.on('submit-quiz-score', (data) => {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom) {
+      io.to(targetRoom).emit('student-score-submitted', data);
+      const altRoom = targetRoom.replace(/-/g, '');
+      if (altRoom && altRoom !== targetRoom) {
+        io.to(altRoom).emit('student-score-submitted', data);
+      }
+      console.log(`🏅 Score submitted by ${data.studentName || 'Student'} in ${targetRoom}: ${data.score}/${data.total}`);
+    }
+  });
+
+  socket.on('request-active-quiz', (data) => {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (targetRoom && roomActiveQuizzes.has(targetRoom)) {
+      socket.emit('room-quiz-published', roomActiveQuizzes.get(targetRoom));
+    }
   });
 
   // ── WebRTC Signaling ──
