@@ -411,6 +411,7 @@ async function acquireMediaStream(userName, isInstructor) {
 function ActiveRoomPage({
   roomId,
   user,
+  roomHostName,
   onLeaveRoom,
   onOpenSettings,
   theme,
@@ -467,13 +468,15 @@ function ActiveRoomPage({
 
   const getShareableLink = (preferLocal = false) => {
     if (!roomId) return '';
+    const currentHost = isInstructor ? (user?.name || '') : (roomHostName || '');
+    const hostParam = currentHost ? `&host=${encodeURIComponent(currentHost)}` : '';
     if (preferLocal) {
-      return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}`;
+      return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
     }
     const host = (networkLanIp && networkLanIp !== 'localhost')
       ? networkLanIp
       : (window.location.hostname !== 'localhost' ? window.location.hostname : '10.216.84.64');
-    return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}`;
+    return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
   };
 
   const copyRoomCode = () => {
@@ -885,7 +888,7 @@ function ActiveRoomPage({
         date: 'Today',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         students: participants.length > 0 ? participants.length : 1,
-        instructor: isInstructor ? (user?.name || 'You') : 'Prof. Yusra'
+        instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
       };
       const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
       localStorage.setItem('synclearn_completed_sessions', JSON.stringify(updated));
@@ -1979,7 +1982,7 @@ function ActiveRoomPage({
                   date: 'Just now',
                   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   students: participants.length || 1,
-                  instructor: isInstructor ? (user?.name || 'You') : 'Prof. Yusra'
+                  instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
                 };
                 // Avoid immediate duplicates
                 const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
@@ -2285,7 +2288,7 @@ function ActiveRoomPage({
                 <button
                   type="button"
                   className={`sidebar-nav-item ${isRoomLocked ? 'locked' : ''}`}
-                  onClick={toggleRoomLock}
+                  onClick={handleToggleRoomLock}
                   title={isRoomLocked ? "Unlock Classroom" : "Lock Classroom"}
                 >
                   <span className="sidebar-item-icon">{isRoomLocked ? '🔒' : '🔓'}</span>
@@ -3558,7 +3561,7 @@ function ActiveRoomPage({
                   date: 'Just now',
                   time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   students: participants.length || 1,
-                  instructor: isInstructor ? (user?.name || 'You') : 'Prof. Yusra'
+                  instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
                 };
                 const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
                 localStorage.setItem('synclearn_completed_sessions', JSON.stringify(updated));

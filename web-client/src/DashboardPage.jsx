@@ -21,7 +21,8 @@ const getShareableHost = () => {
 const buildZoomInvitationText = (topic, roomId, instructorName) => {
   const host = getShareableHost();
   const port = window.location.port || '5173';
-  const joinUrl = `${window.location.protocol}//${host}:${port}?room=${encodeURIComponent(roomId)}`;
+  const hostParam = instructorName ? `&host=${encodeURIComponent(instructorName)}` : '';
+  const joinUrl = `${window.location.protocol}//${host}:${port}?room=${encodeURIComponent(roomId)}${hostParam}`;
   const displayId = roomId ? roomId.replace(/-/g, ' ') : '';
   const nowStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -58,7 +59,8 @@ function ClassInviteModal({
 }) {
   if (!isOpen) return null;
   const displayId = roomId ? roomId.replace(/-/g, ' ') : '';
-  const joinUrl = `${window.location.origin}?room=${encodeURIComponent(roomId)}`;
+  const hostParam = instructorName ? `&host=${encodeURIComponent(instructorName)}` : '';
+  const joinUrl = `${window.location.origin}?room=${encodeURIComponent(roomId)}${hostParam}`;
 
   return (
     <div className="invite-modal-overlay" onClick={onClose}>
@@ -266,8 +268,8 @@ function InstructorDashboard({
                   <p>Room: <code>{s.code}</code> • {s.date} ({s.time || ''}) • <span style={{fontSize:'0.75rem',borderRadius:'99px',padding:'2px 8px',background:'rgba(34,197,94,0.12)',color:'#4ade80'}}>👥 {s.students} participants</span></p>
                 </div>
                 <div style={{ display:'flex', gap:'0.6rem', alignItems:'center' }}>
-                  <button type="button" className="room-copy-btn" onClick={() => handleCopyHistoryLink(s.code)}>🔗 Copy Link</button>
-                  <button type="button" className="rejoin-btn" onClick={() => onJoinRoom && onJoinRoom(s.code)}>▶ Re-enter</button>
+                  <button type="button" className="room-copy-btn" onClick={() => handleCopyHistoryLink(s.code, user?.name)}>🔗 Copy Link</button>
+                  <button type="button" className="rejoin-btn" onClick={() => onJoinRoom && onJoinRoom(s.code, user?.name)}>▶ Re-enter</button>
                 </div>
               </div>
             ))}
@@ -384,8 +386,8 @@ function StudentDashboard({
                   <p>Room: <code>{s.code}</code> • {s.date} ({s.time || ''}) • <span style={{color:'#94a3b8'}}>Instructor: {s.instructor || 'Teacher'}</span></p>
                 </div>
                 <div style={{ display:'flex', gap:'0.6rem', alignItems:'center' }}>
-                  <button type="button" className="room-copy-btn" onClick={() => handleCopyHistoryLink(s.code)}>🔗 Copy Link</button>
-                  <button type="button" className="rejoin-btn" onClick={() => onJoinRoom && onJoinRoom(s.code)}>↩ Rejoin</button>
+                  <button type="button" className="room-copy-btn" onClick={() => handleCopyHistoryLink(s.code, s.instructor)}>🔗 Copy Link</button>
+                  <button type="button" className="rejoin-btn" onClick={() => onJoinRoom && onJoinRoom(s.code, s.instructor)}>↩ Rejoin</button>
                 </div>
               </div>
             ))}
@@ -489,7 +491,8 @@ function DashboardPage({
     if (!createdRoomId) return;
     const host = getShareableHost();
     const port = window.location.port || '5173';
-    const inviteUrl = `${window.location.protocol}//${host}:${port}?room=${encodeURIComponent(createdRoomId)}`;
+    const hostParam = user?.name ? `&host=${encodeURIComponent(user.name)}` : '';
+    const inviteUrl = `${window.location.protocol}//${host}:${port}?room=${encodeURIComponent(createdRoomId)}${hostParam}`;
     navigator.clipboard.writeText(inviteUrl)
       .then(() => showToast(`🔗 Shareable Mobile & Wi-Fi invite link copied: ${inviteUrl}`, 'success'))
       .catch(() => showToast('Failed to copy link', 'error'));
@@ -539,8 +542,12 @@ function DashboardPage({
     }
   };
 
-  const handleCopyHistoryLink = (rId) => {
-    const inviteUrl = `${window.location.origin}?room=${encodeURIComponent(rId)}`;
+  const handleCopyHistoryLink = (rId, instructor) => {
+    const host = getShareableHost();
+    const port = window.location.port || '5173';
+    const hostName = instructor || (user?.role === 'instructor' ? user?.name : '');
+    const hostParam = hostName ? `&host=${encodeURIComponent(hostName)}` : '';
+    const inviteUrl = `${window.location.protocol}//${host}:${port}?room=${encodeURIComponent(rId)}${hostParam}`;
     navigator.clipboard.writeText(inviteUrl)
       .then(() => showToast(`🔗 Invite link for ${rId} copied!`))
       .catch(() => showToast('Failed to copy link', 'error'));

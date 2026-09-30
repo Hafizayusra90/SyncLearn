@@ -11,14 +11,22 @@ function PreJoinModal({
   roomId,
   isInstructor = false,
   isStudentJoinLink = false,
+  hostName = '',
 }) {
   const [micOn, setMicOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
   const [blurBackground, setBlurBackground] = useState(false);
   const [realName, setRealName] = useState(() => {
-    return user?.name || (isInstructor ? 'Hafiza Yusra' : '');
+    return user?.name || '';
   });
   const [nameError, setNameError] = useState('');
+
+  // Keep realName synced if user logs in or switches
+  useEffect(() => {
+    if (user?.name) {
+      setRealName(user.name);
+    }
+  }, [user?.name]);
 
   const [availableMics, setAvailableMics] = useState([]);
   const [availableCams, setAvailableCams] = useState([]);
@@ -160,8 +168,8 @@ function PreJoinModal({
   if (!isOpen) return null;
 
   const meetingHostName = isInstructor
-    ? (realName || user?.name || 'Hafiza Coder')
-    : (user?.name || 'Class');
+    ? (user?.name || realName || 'Instructor')
+    : (hostName || 'Instructor');
 
   const showNameField = !isInstructor || isStudentJoinLink || !user?.name;
 

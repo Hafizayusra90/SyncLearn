@@ -14,13 +14,13 @@ export default function BreakoutPodsModal({
     {
       podId: 'pod_group_alpha',
       podName: 'Group Alpha: Algorithm Design',
-      createdByName: 'Prof. Yusra',
+      createdByName: user?.name || 'Instructor',
       roomId
     },
     {
       podId: 'pod_group_beta',
       podName: 'Group Beta: WebRTC Debugging',
-      createdByName: 'Prof. Yusra',
+      createdByName: user?.name || 'Instructor',
       roomId
     }
   ]);

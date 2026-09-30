@@ -79,12 +79,21 @@ function App() {
   const [user, setUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem('user');
-      return savedUser ? JSON.parse(savedUser) : { name: 'Hafiza Yusra', role: 'student' };
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (parsed?.name === 'Hafiza Yusra' && !localStorage.getItem('token')) {
+          localStorage.removeItem('user');
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch (e) {
-      return { name: 'Hafiza Yusra', role: 'student' };
+      return null;
     }
   });
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('token') || !!localStorage.getItem('user'));
+  const [roomHostName, setRoomHostName] = useState('');
 
   // ── Image 1: Pre-Join Preview Modal States ──
   const [isPreJoinOpen, setIsPreJoinOpen] = useState(false);
@@ -108,7 +117,8 @@ function App() {
 
   const handleUpdateUserRole = (newRole) => {
     setUser(prev => {
-      const updated = { ...(prev || { name: 'Hafiza Yusra' }), role: newRole };
+      const defaultName = newRole === 'instructor' ? 'Instructor' : 'Student';
+      const updated = { ...(prev || { name: defaultName }), role: newRole };
       localStorage.setItem('user', JSON.stringify(updated));
       return updated;
     });
@@ -148,15 +158,19 @@ function App() {
     return val.replace(/^https?:\/\/[^/]+\/?/i, '').replace(/[^a-zA-Z0-9_-]/g, '').trim() || val.trim();
   };
 
-  // Auto-join room via invite link (?room=xxxx) -> Shows Image 1 Preview with real name input!
+  // Auto-join room via invite link (?room=xxxx&host=InstructorName)
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const roomFromUrl = params.get('room');
+      const hostFromUrl = params.get('host');
       if (roomFromUrl && roomFromUrl.trim()) {
         const sanitizedRoom = extractCleanRoom(roomFromUrl);
         if (sanitizedRoom) {
           setPreJoinRoomId(sanitizedRoom);
+          if (hostFromUrl) {
+            setRoomHostName(decodeURIComponent(hostFromUrl.trim()));
+          }
           setIsStudentLinkJoin(true);
           setIsPreJoinOpen(true);
         }
@@ -172,11 +186,16 @@ function App() {
     setCurrentPage(isLoggedIn ? 'dashboard' : 'auth');
   };
 
-  // When instructor or student joins a room, show Image 1 Preview first
-  const handleJoinRoom = (roomId) => {
+  // When instructor or student joins a room, show Preview first
+  const handleJoinRoom = (roomId, optionalHost) => {
     const clean = extractCleanRoom(roomId);
     const targetRoom = clean || roomId || '849-291-034';
     setPreJoinRoomId(targetRoom);
+    if (optionalHost) {
+      setRoomHostName(optionalHost);
+    } else if (user?.role === 'instructor') {
+      setRoomHostName(user?.name || 'Instructor');
+    }
     setIsStudentLinkJoin(user?.role !== 'instructor');
     setIsPreJoinOpen(true);
   };
@@ -189,14 +208,12 @@ function App() {
     setCurrentPage(isLoggedIn ? 'dashboard' : 'home');
   };
 
-  // User requirement: Image 3 preview popup after signup/login for both instructor and student
+  // On login/signup success, navigate directly to clean personalized dashboard
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     setIsLoggedIn(true);
     setCurrentPage('dashboard');
-    setPreJoinRoomId('849-291-034');
-    setIsStudentLinkJoin(userData?.role === 'student');
-    setIsPreJoinOpen(true);
+    setIsPreJoinOpen(false);
   };
 
   const handlePreJoinConfirm = ({ name, micOn, videoOn, blurBackground }) => {
@@ -257,7 +274,7 @@ function App() {
 
         {currentPage === 'dashboard' && (
           <DashboardPage
-            user={user || { name: 'Hafiza Yusra', role: 'student' }}
+            user={user || { name: 'Instructor', role: 'instructor' }}
             onJoinRoom={handleJoinRoom}
             onNavigate={handleNavigate}
             onOpenAnalytics={() => handleNavigate('analytics')}
@@ -312,6 +329,7 @@ function App() {
           <ActiveRoomPage
             roomId={activeRoomId}
             user={user}
+            roomHostName={roomHostName}
             onLeaveRoom={handleLeaveRoom}
             onOpenSettings={handleOpenSettings}
             theme={theme}
@@ -332,6 +350,7 @@ function App() {
           roomId={preJoinRoomId}
           isInstructor={user?.role === 'instructor' && !isStudentLinkJoin}
           isStudentJoinLink={isStudentLinkJoin}
+          hostName={roomHostName}
         />
 
         {/* ── Image 2: Zoom-Style Settings Modal (Appearance, Profile Picture & Hardware) ── */}

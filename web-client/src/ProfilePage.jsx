@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import './ProfilePage.css';
 
 function ProfilePage({ user, onBackToDashboard, onNavigate }) {
-  const [profileName, setProfileName] = useState(user?.name || 'Yusra User');
-  const [email] = useState(user?.email || 'yusra@university.edu');
+  const [profileName, setProfileName] = useState(user?.name || (user?.role === 'instructor' ? 'Instructor' : 'Student'));
+  const [email] = useState(user?.email || '');
   const [recoveryEmail, setRecoveryEmail] = useState(user?.recoveryEmail || '');
   const [role] = useState(user?.role || 'Student');
   const [avatar, setAvatar] = useState(user?.avatar || '');
