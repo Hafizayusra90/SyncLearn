@@ -117,8 +117,8 @@ function AnalyticsPage({ onNavigate }) {
 
             <div className="engagement-item">
               <div className="engagement-info">
-                <span>3D Model Interaction</span>
-                <strong>65%</strong>
+                <span>Lecture Video Sync</span>
+                <strong>78%</strong>
               </div>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: '65%', backgroundColor: '#f59e0b' }}></div>

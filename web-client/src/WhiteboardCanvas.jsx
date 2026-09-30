@@ -33,8 +33,6 @@ function WhiteboardCanvas({ roomId, user }) {
   // Dual Mode (Typing Pad + Whiteboard Canvas)
   const [isDualMode, setIsDualMode] = useState(true);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
-  const [isTypingToolsOpen, setIsTypingToolsOpen] = useState(false);
-  const [isBulletMenuOpen, setIsBulletMenuOpen] = useState(false);
   const [typedNotes, setTypedNotes] = useState("Welcome students to today's live session!");
   const [typingFontSize, setTypingFontSize] = useState(20);
   const [typingTextColor, setTypingTextColor] = useState('#ffffff');
@@ -45,48 +43,6 @@ function WhiteboardCanvas({ roomId, user }) {
     socket.emit('whiteboard-typing-sync', {
       roomId,
       notes: newText,
-      fontSize: typingFontSize,
-      textColor: typingTextColor
-    });
-  };
-
-  const handleInsertBullet = (bulletChar) => {
-    const nextVal = typedNotes.trim() ? typedNotes + `\n${bulletChar} ` : `${bulletChar} `;
-    setTypedNotes(nextVal);
-    setIsBulletMenuOpen(false);
-    socket.emit('whiteboard-typing-sync', {
-      roomId,
-      notes: nextVal,
-      fontSize: typingFontSize,
-      textColor: typingTextColor
-    });
-  };
-
-  const handleFontSizeChange = (size) => {
-    setTypingFontSize(size);
-    socket.emit('whiteboard-typing-sync', {
-      roomId,
-      notes: typedNotes,
-      fontSize: size,
-      textColor: typingTextColor
-    });
-  };
-
-  const handleTextColorChange = (c) => {
-    setTypingTextColor(c);
-    socket.emit('whiteboard-typing-sync', {
-      roomId,
-      notes: typedNotes,
-      fontSize: typingFontSize,
-      textColor: c
-    });
-  };
-
-  const handleClearNotes = () => {
-    setTypedNotes('');
-    socket.emit('whiteboard-typing-sync', {
-      roomId,
-      notes: '',
       fontSize: typingFontSize,
       textColor: typingTextColor
     });
@@ -788,149 +744,13 @@ function WhiteboardCanvas({ roomId, user }) {
                   </button>
                 </div>
 
-                {/* Collapsible Formatting Tools Heading / Button */}
-                <button
-                  type="button"
-                  className={`wb-typing-tools-btn ${isTypingToolsOpen ? 'open' : ''}`}
-                  onClick={() => setIsTypingToolsOpen(prev => !prev)}
-                  title="Click to show/hide text formatting and presets"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.95rem' }}>🛠️</span>
-                    <span className="typing-tools-label">Tools</span>
-                  </div>
-                  <span className="typing-tools-arrow">{isTypingToolsOpen ? '▲' : '▼'}</span>
-                </button>
-
-                {/* When Clicked, Show All Presets and Controls */}
-                {isTypingToolsOpen && (
-                  <div className="wb-typing-tools-drawer">
-                    {/* Quick Format Presets */}
-                    <div className="wb-typing-presets">
-                      <button
-                        type="button"
-                        className="preset-chip"
-                        onClick={() => handleTeacherNoteChange(typedNotes ? typedNotes + '\n# Topic: ' : '# Topic: ')}
-                        title="Insert Topic Heading"
-                      >
-                        🏷️ Heading
-                      </button>
-
-                      {/* Bullets Dropdown Menu */}
-                      <div className="preset-dropdown-wrap" style={{ position: 'relative', display: 'inline-block' }}>
-                        <button
-                          type="button"
-                          className={`preset-chip ${isBulletMenuOpen ? 'active' : ''}`}
-                          onClick={() => setIsBulletMenuOpen(!isBulletMenuOpen)}
-                          title="Choose from different bullet styles"
-                        >
-                          • Bullets ▾
-                        </button>
-                        {isBulletMenuOpen && (
-                          <div className="bullet-dropdown-menu" style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            marginTop: 4,
-                            background: '#0f172a',
-                            border: '1px solid #334155',
-                            borderRadius: '8px',
-                            padding: '4px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '2px',
-                            zIndex: 50,
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-                            minWidth: '130px'
-                          }}>
-                            {[
-                              { icon: '•', label: '• Circle Bullet' },
-                              { icon: '◆', label: '◆ Diamond' },
-                              { icon: '➜', label: '➜ Arrow' },
-                              { icon: '✔', label: '✔ Checkmark' },
-                              { icon: '★', label: '★ Star' },
-                              { icon: '1.', label: '1. Numbered' }
-                            ].map(b => (
-                              <button
-                                key={b.icon}
-                                type="button"
-                                onClick={() => handleInsertBullet(b.icon)}
-                                style={{
-                                  background: 'transparent',
-                                  border: 'none',
-                                  color: '#cbd5e1',
-                                  padding: '5px 8px',
-                                  textAlign: 'left',
-                                  fontSize: '0.75rem',
-                                  cursor: 'pointer',
-                                  borderRadius: '4px'
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#1e293b'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                              >
-                                {b.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="preset-chip"
-                        onClick={() => handleTeacherNoteChange(typedNotes ? typedNotes + '\nNote: ' : 'Note: ')}
-                        title="Insert Important Note"
-                      >
-                        💡 Note
-                      </button>
-                    </div>
-
-                    {/* Typing Controls Row */}
-                    <div className="wb-typing-controls">
-                      <div className="control-group">
-                        <label>Text Size:</label>
-                        <select
-                          value={typingFontSize}
-                          onChange={e => handleFontSizeChange(Number(e.target.value))}
-                          className="typing-select"
-                        >
-                          <option value={16}>Small (16px)</option>
-                          <option value={20}>Medium (20px)</option>
-                          <option value={26}>Large (26px)</option>
-                          <option value={32}>X-Large (32px)</option>
-                        </select>
-                      </div>
-
-                      <div className="control-group">
-                        <label>Color:</label>
-                        <input
-                          type="color"
-                          value={typingTextColor}
-                          onChange={e => handleTextColorChange(e.target.value)}
-                          className="typing-color-picker"
-                          title="Pick Text Color"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        className="typing-clear-btn"
-                        onClick={handleClearNotes}
-                        title="Clear Typed Text"
-                      >
-                        ✕ Clear
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Multi-line Keyboard Typing Input */}
                 <textarea
                   className="wb-typing-textarea"
                   value={typedNotes}
                   onChange={e => handleTeacherNoteChange(e.target.value)}
                   placeholder="Teacher can write lecture notes, code, or formulas here using keyboard..."
-                  rows={8}
+                  rows={10}
                 />
 
                 {/* Action Bar */}
@@ -940,12 +760,12 @@ function WhiteboardCanvas({ roomId, user }) {
                     className="btn-stamp-board"
                     onClick={handleStampNotesToCanvas}
                     disabled={!typedNotes.trim()}
-                    title="Render this typed note cleanly onto the whiteboard canvas for all students"
+                    title="Pin typed note onto the whiteboard canvas for all students"
                   >
-                    <span>📌 Send / Stamp to Whiteboard</span>
+                    <span>📌 Pin to Whiteboard</span>
                   </button>
                   <span className="wb-typing-hint">
-                    💡 Tip: Click "Send / Stamp" to render formatted notes directly on the board.
+                    💡 Tip: Click "Pin to Whiteboard" to stamp your notes onto the canvas.
                   </span>
                 </div>
               </>

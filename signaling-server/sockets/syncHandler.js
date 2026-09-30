@@ -504,6 +504,21 @@ const syncHandler = (io, socket) => {
     });
   });
 
+  // ── End Meeting for All (Instructor Broadcast) ──
+  socket.on('end-meeting-for-all', ({ roomId: rawRoomId }) => {
+    const roomId = sanitizeRoomId(rawRoomId || socket.roomId);
+    if (!roomId) return;
+    console.log(`🛑 Meeting ended for all by instructor in room: ${roomId}`);
+    io.to(roomId).emit('meeting-ended-by-host', {
+      message: 'The instructor has ended the classroom session for all attendees.'
+    });
+    // Mark room as inactive in MongoDB
+    Room.findOneAndUpdate(
+      { roomId },
+      { $set: { isActive: false, endedAt: new Date() } }
+    ).catch(() => {});
+  });
+
   // ── Disconnect: notify room peers and update roster ──
   socket.on('disconnect', () => {
     console.log('❌ User Disconnected:', socket.id);

@@ -524,81 +524,8 @@ const VideoPlayer = ({
             </label>
           )}
 
-          <button
-            type="button"
-            className="btn-video-action"
-            onClick={() => setShowUrlInput(!showUrlInput)}
-            title="Load YouTube URL or direct MP4 video link"
-          >
-            {showUrlInput ? '✕ Close' : '🔗 Load URL'}
-          </button>
         </div>
       </div>
-
-      {/* URL Input Form */}
-      {showUrlInput && (
-        <div className="video-input-card">
-          <div className="video-input-tabs">
-            <button
-              type="button"
-              className={`video-input-tab ${selectedInputTab === 'youtube' ? 'active' : ''}`}
-              onClick={() => setSelectedInputTab('youtube')}
-            >
-              ▶ YouTube Link
-            </button>
-            <button
-              type="button"
-              className={`video-input-tab ${selectedInputTab === 'mp4' ? 'active' : ''}`}
-              onClick={() => setSelectedInputTab('mp4')}
-            >
-              📽️ Direct MP4 / WebM Link
-            </button>
-          </div>
-
-          <form onSubmit={handleUpdateMedia} className="video-input-row">
-            <input
-              type="text"
-              className="video-url-input"
-              placeholder={
-                selectedInputTab === 'youtube'
-                  ? "Paste YouTube link (e.g. https://www.youtube.com/watch?v=k3_tw44QsZQ)..."
-                  : "Enter direct MP4 / WebM URL..."
-              }
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-            />
-            <button type="submit" className="video-btn-submit">
-              Load Video 🚀
-            </button>
-          </form>
-
-          {/* 1-Click Educational Presets for Teachers & Instant Testing */}
-          <div className="video-presets-row" style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>⚡ 1-Click Educational Demo Videos:</span>
-            {EDUCATIONAL_PRESETS.map((p, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="btn-preset-chip"
-                onClick={() => loadPresetVideo(p)}
-                style={{
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  border: '1px solid rgba(59, 130, 246, 0.35)',
-                  color: '#60a5fa',
-                  padding: '3px 10px',
-                  borderRadius: 20,
-                  fontSize: '0.73rem',
-                  cursor: 'pointer',
-                  fontWeight: 600
-                }}
-                title={`Load ${p.title}`}
-              >
-                {p.title}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Frame Container */}
       <div className="video-frame-container">

@@ -3,7 +3,6 @@ import { jsPDF } from 'jspdf';
 import { Send } from 'lucide-react';
 import Peer from 'simple-peer';
 import './ActiveRoomPage.css';
-import ModelViewerModal from './ModelViewerModal';
 import WhiteboardCanvas from './WhiteboardCanvas';
 import { socket } from './socket';
 import VideoPlayer from './components/VideoPlayer';
@@ -425,7 +424,8 @@ function ActiveRoomPage({
   const [activeTab, setActiveTab]         = useState(null);
   const [micOn, setMicOn]                 = useState(initialMicOn);
   const [videoOn, setVideoOn]             = useState(initialVideoOn);
-  const [is3DModalOpen, setIs3DModalOpen] = useState(false);
+  const [panelSizeMode, setPanelSizeMode] = useState('normal'); // 'normal' | 'maximized' | 'minimized'
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isConnected, setIsConnected]     = useState(socket.connected);
   const [peers, setPeers]                 = useState([]);
   const [userStream, setUserStream]       = useState(null);
@@ -449,6 +449,30 @@ function ActiveRoomPage({
     toastTimeoutRef.current = setTimeout(() => {
       setToast(prev => ({ ...prev, show: false }));
     }, 3200);
+  };
+
+  const handleRecordSessionHistoryAndLeave = () => {
+    try {
+      const userKey = user?.email
+        ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
+        : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
+      if (userKey) {
+        const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+        const newRecord = {
+          code: roomId,
+          title: `Live Session (${roomId})`,
+          date: 'Just now',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          students: participants.length || 1,
+          instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+        };
+        const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
+        localStorage.setItem(userKey, JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.warn('Failed to save session history:', e);
+    }
+    if (onLeaveRoom) onLeaveRoom();
   };
 
   // Network LAN IP for sharing to mobile / other devices on the same Wi-Fi
@@ -1069,6 +1093,14 @@ function ActiveRoomPage({
       if (onLeaveRoom) onLeaveRoom();
     });
 
+    // Host ends meeting for all participants
+    socket.on('meeting-ended-by-host', (data) => {
+      showToast('⚠️ The host has ended the classroom session for all participants.', 'info');
+      setTimeout(() => {
+        handleRecordSessionHistoryAndLeave();
+      }, 1200);
+    });
+
     // Pinned Doubts Sync
     socket.on('doubt-pinned', (doubt) => {
       setPinnedDoubts(prev => {
@@ -1166,6 +1198,7 @@ function ActiveRoomPage({
       socket.off('peer-engagement-stat');
       socket.off('recording-status-change');
       socket.off('peer-joined-notification');
+      socket.off('meeting-ended-by-host');
       socket.disconnect();
     };
   }, [roomId, isInstructor, onLeaveRoom, user]);
@@ -1932,8 +1965,7 @@ function ActiveRoomPage({
         <div className="room-info">
           <h2 className="room-header-title">
             <img src="/logo.png" alt="SyncLearn" className="room-header-logo" />
-            <span className="room-label">Room:</span>
-            <code>{roomId}</code>
+            <span className="room-label">Classroom</span>
           </h2>
           <span className="status-indicator">
             {isConnected ? '🟢 Live' : '🔴 Connecting...'}
@@ -1978,28 +2010,11 @@ function ActiveRoomPage({
             type="button" 
             className="leave-btn" 
             onClick={() => {
-              try {
-                // Record completed session history for student/teacher
-                const userKey = user?.email
-                  ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
-                  : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
-                if (userKey) {
-                  const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
-                  const newRecord = {
-                    code: roomId,
-                    title: `Live Session (${roomId})`,
-                    date: 'Just now',
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    students: participants.length || 1,
-                    instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
-                  };
-                  const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
-                  localStorage.setItem(userKey, JSON.stringify(updated));
-                }
-              } catch (e) {
-                console.warn('Failed to save session history:', e);
+              if (isInstructor) {
+                setIsLeaveModalOpen(true);
+              } else {
+                handleRecordSessionHistoryAndLeave();
               }
-              if (onLeaveRoom) onLeaveRoom();
             }}
           >
             ⬅ Leave Room
@@ -2008,7 +2023,7 @@ function ActiveRoomPage({
       </header>
 
       {/* ── Body ── */}
-      <div className={`room-body ${activeTab ? 'sidebar-open' : 'sidebar-closed'} ${isSidebarCollapsed ? 'left-dock-collapsed' : 'left-dock-expanded'}`}>
+      <div className={`room-body ${activeTab ? 'sidebar-open' : 'sidebar-closed'} ${isSidebarCollapsed ? 'left-dock-collapsed' : 'left-dock-expanded'} sidebar-${panelSizeMode}`}>
         {/* ── Left Collapsible Navigation Dock (Matching Images 1, 2, 3) ── */}
         <aside className={`studio-dock-sidebar ${isSidebarCollapsed ? 'collapsed' : 'expanded'}`}>
           {/* Header with 3 Lines Hamburger Menu Button (Image 3) */}
@@ -2069,7 +2084,7 @@ function ActiveRoomPage({
                   <span className="sidebar-item-sub">Synced Watch Party</span>
                 </div>
               )}
-              {!isSidebarCollapsed && <span className="sidebar-item-badge red">Media</span>}
+              {!isSidebarCollapsed && <span className="sidebar-item-badge red">Video</span>}
             </button>
 
             {/* 3. All-In-One Unified View */}
@@ -2121,22 +2136,6 @@ function ActiveRoomPage({
                 <div className="sidebar-item-label">
                   <span className="sidebar-item-title">{isScreenSharing ? 'Stop Sharing' : 'Share Screen'}</span>
                   <span className="sidebar-item-sub">Present your screen</span>
-                </div>
-              )}
-            </button>
-
-            {/* 6. 3D Model Viewer */}
-            <button
-              type="button"
-              className="sidebar-nav-item"
-              onClick={() => setIs3DModalOpen(true)}
-              title="Interactive 3D Object Viewer"
-            >
-              <span className="sidebar-item-icon">🧊</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">3D Models</span>
-                  <span className="sidebar-item-sub">Explore 3D Assets</span>
                 </div>
               )}
             </button>
@@ -2420,7 +2419,7 @@ function ActiveRoomPage({
 
         {/* ── Sidebar (On-Demand, opens when bottom chat icon is clicked) ── */}
         {activeTab && (
-          <aside className="sidebar-panel">
+          <aside className={`sidebar-panel ${panelSizeMode}`}>
             <div className="panel-header-custom">
               <div className="panel-header-top">
                 <div className="panel-header-title-box">
@@ -2445,18 +2444,57 @@ function ActiveRoomPage({
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="panel-close-btn"
-                  onClick={() => setActiveTab(null)}
-                  title="Close Panel"
-                >
-                  ✕
-                </button>
+
+                {/* Window Controls: Minimize, Maximize, Cancel/Close */}
+                <div className="panel-window-controls">
+                  <button
+                    type="button"
+                    className={`panel-win-btn ${panelSizeMode === 'minimized' ? 'active' : ''}`}
+                    onClick={() => setPanelSizeMode(prev => prev === 'minimized' ? 'normal' : 'minimized')}
+                    title={panelSizeMode === 'minimized' ? "Restore Panel" : "Minimize Panel (🗕)"}
+                  >
+                    🗕
+                  </button>
+                  <button
+                    type="button"
+                    className={`panel-win-btn ${panelSizeMode === 'maximized' ? 'active' : ''}`}
+                    onClick={() => setPanelSizeMode(prev => prev === 'maximized' ? 'normal' : 'maximized')}
+                    title={panelSizeMode === 'maximized' ? "Restore Normal Size" : "Maximize Panel (🗖)"}
+                  >
+                    {panelSizeMode === 'maximized' ? '🗗' : '🗖'}
+                  </button>
+                  <button
+                    type="button"
+                    className="panel-win-btn panel-close-btn"
+                    onClick={() => {
+                      setActiveTab(null);
+                      setPanelSizeMode('normal');
+                    }}
+                    title="Close Panel (✕)"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
-              {/* Sleek Tool Switcher Pills */}
-              <div className="panel-tools-bar">
+              {panelSizeMode === 'minimized' ? (
+                <div
+                  style={{
+                    padding: '4px 6px',
+                    fontSize: '0.72rem',
+                    color: '#38bdf8',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: 'rgba(2, 132, 199, 0.15)',
+                    borderRadius: 6
+                  }}
+                  onClick={() => setPanelSizeMode('normal')}
+                >
+                  🗕 Minimized • Click to expand
+                </div>
+              ) : (
+                /* Sleek Tool Switcher Pills */
+                <div className="panel-tools-bar">
                 <button
                   type="button"
                   className={`panel-tool-pill ${activeTab === 'chat' ? 'active' : ''}`}
@@ -2486,9 +2524,11 @@ function ActiveRoomPage({
                   {isInstructor ? `⚙️ Host (${participants.length || 1})` : `👥 Roster (${participants.length || 1})`}
                 </button>
               </div>
+            )}
             </div>
 
-            <div className="panel-content">
+            {panelSizeMode !== 'minimized' && (
+              <div className="panel-content">
               {/* Tab 1: Live Chat & Pinned Doubts */}
               {activeTab === 'chat' && (
                 <div className="chat-container">
@@ -3022,6 +3062,7 @@ function ActiveRoomPage({
                 </div>
               )}
             </div>
+            )}
           </aside>
         )}
       </div>
@@ -3617,10 +3658,148 @@ function ActiveRoomPage({
         </div>
       )}
 
-      {/* Hidden Audio Loopback for Mic Self-Testing */}
-      <audio ref={micTestAudioRef} autoPlay playsInline />
+      {/* ── Instructor Leave Confirmation Modal ── */}
+      {isLeaveModalOpen && (
+        <div
+          className="synclearn-modal-backdrop"
+          onClick={() => setIsLeaveModalOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(2, 6, 23, 0.78)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999
+          }}
+        >
+          <div
+            className="synclearn-modal-dialog"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '90%',
+              maxWidth: '460px',
+              background: 'linear-gradient(180deg, #0b1d33 0%, #061527 100%)',
+              border: '1.5px solid rgba(56, 189, 248, 0.35)',
+              borderRadius: '14px',
+              boxShadow: '0 20px 45px rgba(0, 0, 0, 0.75)',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '1rem 1.25rem',
+              borderBottom: '1px solid rgba(56, 189, 248, 0.2)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🚪</span>
+                <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>
+                  Leave Classroom
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="panel-close-btn"
+                onClick={() => setIsLeaveModalOpen(false)}
+                title="Cancel"
+                style={{ fontSize: '1rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
 
-      <ModelViewerModal isOpen={is3DModalOpen} onClose={() => setIs3DModalOpen(false)} roomId={roomId} />
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+              <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                You are currently hosting this live classroom. Please choose an exit action:
+              </p>
+
+              {/* Option 1: Leave Meeting (Instructor leaves only) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLeaveModalOpen(false);
+                  handleRecordSessionHistoryAndLeave();
+                }}
+                style={{
+                  background: 'rgba(10, 34, 62, 0.85)',
+                  border: '1.5px solid rgba(56, 189, 248, 0.35)',
+                  borderRadius: 10,
+                  padding: '0.85rem 1rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#38bdf8'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)'}
+              >
+                <span style={{ fontSize: '1.35rem', marginTop: 2 }}>🚶‍♂️</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.88rem' }}>Leave Meeting</div>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: 3 }}>
+                    Only you exit the classroom. Students remain in session and can continue discussions.
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: End Meeting for All */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLeaveModalOpen(false);
+                  socket.emit('end-meeting-for-all', { roomId: cleanRoomId(roomId) });
+                  handleRecordSessionHistoryAndLeave();
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(185, 28, 28, 0.35) 100%)',
+                  border: '1.5px solid #ef4444',
+                  borderRadius: 10,
+                  padding: '0.85rem 1rem',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 16px rgba(239, 68, 68, 0.45)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+              >
+                <span style={{ fontSize: '1.35rem', marginTop: 2 }}>🛑</span>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#fca5a5', fontSize: '0.88rem' }}>End Meeting for All</div>
+                  <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: 3 }}>
+                    Complete the entire session. All students will be safely disconnected and returned to dashboard.
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid rgba(56, 189, 248, 0.18)', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setIsLeaveModalOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #475569',
+                  color: '#94a3b8',
+                  borderRadius: 6,
+                  padding: '6px 14px',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Pop Quiz Modal */}
       <AIQuizModal
