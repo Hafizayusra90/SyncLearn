@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isValidRealEmail, isValidRealName } from './utils/validation';
 import './SettingsModal.css';
 
 function SettingsModal({
@@ -14,7 +15,7 @@ function SettingsModal({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Profile Form States
-  const [name, setName] = useState(user?.name || '');
+  const [name, setName] = useState(user?.name && user.name !== 'Hafiza Yusra' ? user.name : (user?.name || ''));
   const [recoveryEmail, setRecoveryEmail] = useState(user?.recoveryEmail || '');
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [saveMessage, setSaveMessage] = useState('');
@@ -166,6 +167,18 @@ function SettingsModal({
   // Save Profile Changes
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    setSaveMessage('');
+
+    if (name.trim() && !isValidRealName(name)) {
+      setSaveMessage('❌ Please enter a valid real name (letters only).');
+      return;
+    }
+
+    if (recoveryEmail.trim() && !isValidRealEmail(recoveryEmail)) {
+      setSaveMessage('❌ Please enter a valid, active recovery email.');
+      return;
+    }
+
     setIsSaving(true);
     setSaveMessage('Saving profile...');
 
@@ -522,7 +535,7 @@ function SettingsModal({
                         className="zoom-form-input"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        placeholder="e.g. Hafiza Yusra / Student Name"
+                        placeholder="Enter your name"
                       />
                     </div>
 
@@ -531,7 +544,8 @@ function SettingsModal({
                       <input
                         type="email"
                         className="zoom-form-input"
-                        value={user?.email || 'user@synclearn.edu'}
+                        value={user?.email || ''}
+                        placeholder="Enter your email"
                         disabled
                       />
                     </div>
@@ -543,7 +557,7 @@ function SettingsModal({
                         className="zoom-form-input"
                         value={recoveryEmail}
                         onChange={e => setRecoveryEmail(e.target.value)}
-                        placeholder="recovery@example.com"
+                        placeholder="Enter recovery email"
                       />
                     </div>
 
@@ -562,7 +576,7 @@ function SettingsModal({
                       disabled={isSaving}
                       className="zoom-save-profile-btn"
                     >
-                      {isSaving ? 'Saving...' : '💾 Save Profile & Picture'}
+                      {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
 
                     {saveMessage && (

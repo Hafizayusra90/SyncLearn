@@ -139,7 +139,8 @@ function InstructorDashboard({
   handleCopyHistoryLink,
   onJoinRoom,
   onOpenSettings,
-  completedSessions = []
+  completedSessions = [],
+  handleClearSessions
 }) {
   const sessionCount = completedSessions.length;
   const totalStudentsTaught = completedSessions.reduce((acc, curr) => acc + (curr.students || 1), 0);
@@ -246,14 +247,28 @@ function InstructorDashboard({
         </div>
       </div>
 
-      <div className="role-section-title">⚙️ Instructor Tools</div>
-      <div className="instructor-features-grid">
-        {['✏️ Whiteboard Control','🎙️ AI Live Notes','🖥️ Screen Share','📍 Doubt Pinning','🔇 Mute Students','📊 Analytics','🎬 Video Sync','💬 Live Chat'].map(f => (
-          <div className="feature-pill" key={f}>{f}</div>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+        <div className="role-section-title" style={{ margin: 0 }}>🕐 Completed Live Sessions ({sessionCount})</div>
+        {sessionCount > 0 && (
+          <button
+            type="button"
+            onClick={handleClearSessions}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              cursor: 'pointer'
+            }}
+            title="Reset and clear all session attendance history"
+          >
+            🗑️ Clear History
+          </button>
+        )}
       </div>
 
-      <div className="role-section-title">🕐 Completed Live Sessions ({sessionCount})</div>
       <div className="history-section">
         {sessionCount === 0 ? (
           <div style={{ textAlign: 'center', padding: '1.75rem', color: '#64748b', fontSize: '0.88rem' }}>
@@ -285,7 +300,8 @@ function StudentDashboard({
   user, inputRoomId, setInputRoomId,
   handleJoinSubmit, handlePasteIntoJoin, handleCopyHistoryLink, onJoinRoom,
   onOpenSettings,
-  completedSessions = []
+  completedSessions = [],
+  handleClearSessions
 }) {
   const attendedCount = completedSessions.length;
 
@@ -371,7 +387,27 @@ function StudentDashboard({
         ))}
       </div>
 
-      <div className="role-section-title">🕐 My Completed Sessions ({attendedCount})</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+        <div className="role-section-title" style={{ margin: 0 }}>🕐 My Completed Sessions ({attendedCount})</div>
+        {attendedCount > 0 && (
+          <button
+            type="button"
+            onClick={handleClearSessions}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              cursor: 'pointer'
+            }}
+            title="Reset and clear all session attendance history"
+          >
+            🗑️ Clear History
+          </button>
+        )}
+      </div>
       <div className="history-section">
         {attendedCount === 0 ? (
           <div style={{ textAlign: 'center', padding: '1.75rem', color: '#64748b', fontSize: '0.88rem' }}>
@@ -437,24 +473,33 @@ function DashboardPage({
     return () => clearInterval(interval);
   }, []);
 
-  // Real-time completed sessions from actual class attendance (0 by default if no class attended yet)
-  const [completedSessions, setCompletedSessions] = useState(() => {
+  const getUserSessionStorageKey = () => {
+    if (user?.email) return `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`;
+    if (user?._id) return `synclearn_completed_sessions_${user._id}`;
+    return null;
+  };
+
+  const getStoredSessions = () => {
     try {
-      return JSON.parse(localStorage.getItem('synclearn_completed_sessions') || '[]');
+      const key = getUserSessionStorageKey();
+      if (!key) return [];
+      const data = localStorage.getItem(key);
+      if (data) {
+        return JSON.parse(data);
+      }
+      return [];
     } catch {
       return [];
     }
-  });
+  };
+
+  // Real-time completed sessions from actual class attendance (0 by default for new instructor/student)
+  const [completedSessions, setCompletedSessions] = useState(() => getStoredSessions());
 
   // Keep dashboard stats up-to-date in real-time when returning from classroom
   useEffect(() => {
     const refreshSessions = () => {
-      try {
-        const stored = JSON.parse(localStorage.getItem('synclearn_completed_sessions') || '[]');
-        setCompletedSessions(stored);
-      } catch (err) {
-        console.error('Session sync error:', err);
-      }
+      setCompletedSessions(getStoredSessions());
     };
 
     refreshSessions();
@@ -464,7 +509,17 @@ function DashboardPage({
       window.removeEventListener('storage', refreshSessions);
       window.removeEventListener('focus', refreshSessions);
     };
-  }, []);
+  }, [user?.email, user?._id]);
+
+  const handleClearSessions = () => {
+    const key = getUserSessionStorageKey();
+    if (key) {
+      localStorage.removeItem(key);
+    }
+    localStorage.removeItem('synclearn_completed_sessions');
+    setCompletedSessions([]);
+    showToast('Class history cleared. All session counts reset to 0.', 'info');
+  };
 
   const showToast = (message, type = 'success') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -696,6 +751,7 @@ function DashboardPage({
             onJoinRoom={onJoinRoom}
             onOpenSettings={onOpenSettings}
             completedSessions={completedSessions}
+            handleClearSessions={handleClearSessions}
           />
         ) : (
           <StudentDashboard
@@ -708,6 +764,7 @@ function DashboardPage({
             onJoinRoom={onJoinRoom}
             onOpenSettings={onOpenSettings}
             completedSessions={completedSessions}
+            handleClearSessions={handleClearSessions}
           />
         )}
       </div>

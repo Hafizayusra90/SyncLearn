@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { isValidRealEmail, isValidRealName } from './utils/validation';
 import './ProfilePage.css';
 
 function ProfilePage({ user, onBackToDashboard, onNavigate }) {
-  const [profileName, setProfileName] = useState(user?.name || (user?.role === 'instructor' ? 'Instructor' : 'Student'));
-  const [email] = useState(user?.email || '');
+  const [profileName, setProfileName] = useState(user?.name && user.name !== 'Hafiza Yusra' ? user.name : (user?.name || ''));
+  const [email, setEmail] = useState(user?.email || '');
   const [recoveryEmail, setRecoveryEmail] = useState(user?.recoveryEmail || '');
   const [role] = useState(user?.role || 'Student');
   const [avatar, setAvatar] = useState(user?.avatar || '');
@@ -20,35 +21,62 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    setSaveStatus('');
+
+    // Real name validation
+    if (!profileName.trim() || !isValidRealName(profileName)) {
+      setSaveStatus('❌ Please enter a valid real name (minimum 2 letters, no numbers).');
+      return;
+    }
+
+    // Real active email validation
+    if (!email.trim() || !isValidRealEmail(email)) {
+      setSaveStatus('❌ Please enter a valid, active email address that exists (e.g. name@gmail.com).');
+      return;
+    }
+
+    // Real recovery email validation
+    if (recoveryEmail.trim() && !isValidRealEmail(recoveryEmail)) {
+      setSaveStatus('❌ Please enter a valid, active recovery email address.');
+      return;
+    }
+
+    if (recoveryEmail.trim() && recoveryEmail.trim().toLowerCase() === email.trim().toLowerCase()) {
+      setSaveStatus('❌ Recovery email cannot be identical to your primary email address.');
+      return;
+    }
+
     setSaveStatus('Saving...');
     try {
       const res = await fetch('http://localhost:5000/api/v1/auth/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
-          name: profileName,
-          recoveryEmail,
+          email: user?.email || email.trim(),
+          newEmail: email.trim(),
+          name: profileName.trim(),
+          recoveryEmail: recoveryEmail.trim(),
           avatar
         })
       });
       const data = await res.json();
       if (res.ok) {
-        setSaveStatus('✅ Profile & Picture saved to MongoDB!');
+        setSaveStatus('✅ Profile updated successfully!');
         const updated = {
           ...(user || {}),
-          name: profileName,
-          recoveryEmail,
+          name: profileName.trim(),
+          email: email.trim(),
+          recoveryEmail: recoveryEmail.trim(),
           avatar
         };
         localStorage.setItem('user', JSON.stringify(updated));
         setTimeout(() => setSaveStatus(''), 3500);
       } else {
-        setSaveStatus('Error: ' + (data.message || 'Failed to update'));
+        setSaveStatus('❌ Error: ' + (data.message || 'Failed to update profile'));
       }
     } catch (err) {
-      setSaveStatus('Connection error: ' + err.message);
+      setSaveStatus('❌ Connection error: ' + err.message);
     }
   };
 
@@ -123,6 +151,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
                 <label>Full Name</label>
                 <input
                   type="text"
+                  placeholder="Enter your name"
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   className="profile-input"
@@ -133,8 +162,9 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
                 <label>Email Address</label>
                 <input
                   type="email"
+                  placeholder="Enter your email"
                   value={email}
-                  disabled
+                  onChange={(e) => setEmail(e.target.value)}
                   className="profile-input"
                 />
               </div>
@@ -143,7 +173,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
                 <label>Recovery Email Address (For Account & Password Recovery)</label>
                 <input
                   type="email"
-                  placeholder="recovery@example.com"
+                  placeholder="Enter recovery email"
                   value={recoveryEmail}
                   onChange={(e) => setRecoveryEmail(e.target.value)}
                   className="profile-input"
@@ -176,7 +206,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
                   boxShadow: '0 4px 12px rgba(99,102,241,0.35)'
                 }}
               >
-                💾 Save Changes to MongoDB
+                Save Changes
               </button>
 
               {saveStatus && (
@@ -202,7 +232,6 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
               <label>Select Camera Device</label>
               <select className="profile-input">
                 <option>Integrated HD Web Camera (Default)</option>
-                <option>Virtual Camera Driver</option>
               </select>
               <div className="device-preview-box">
                 📹 Camera Preview Active
@@ -227,7 +256,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
         </div>
 
         <button type="button" className="save-profile-btn" onClick={handleSave}>
-          Save Settings
+          Save Changes
         </button>
       </div>
     </div>

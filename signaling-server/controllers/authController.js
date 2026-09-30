@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { isValidRealEmail, isValidRealName, validatePasswordPolicy } = require('../utils/validation');
 
 // ── In-Memory fallback store (used when MongoDB is offline) ──────────────────
 const memoryUsers = [];
@@ -11,31 +12,37 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'synclearn_fallback_secret', { expiresIn: '30d' });
 };
 
-// Password validator: min 8 chars, at least one special character
-const isValidPassword = (password) => {
-  if (!password || typeof password !== 'string') return false;
-  if (password.length < 8) return false;
-  const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/;
-  return specialCharRegex.test(password);
-};
-
 // ── Register ─────────────────────────────────────────────────────────────────
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, role, recoveryEmail } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please provide full name, email, and password.' });
+    if (!name || !isValidRealName(name)) {
+      return res.status(400).json({ message: 'Please provide a valid full name (minimum 2 letters, no numbers).' });
     }
 
-    if (!isValidPassword(password)) {
-      return res.status(400).json({
-        message: 'Password must be at least 8 characters long and contain at least one special character (e.g. @, #, $, %, !).'
-      });
+    if (!email || !isValidRealEmail(email)) {
+      return res.status(400).json({ message: 'Please provide a valid, active email address (e.g. name@gmail.com, student@university.edu).' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
     const cleanRecovery = recoveryEmail ? recoveryEmail.toLowerCase().trim() : '';
+
+    if (cleanRecovery) {
+      if (!isValidRealEmail(cleanRecovery)) {
+        return res.status(400).json({ message: 'Please provide a valid recovery email address.' });
+      }
+      if (cleanRecovery === cleanEmail) {
+        return res.status(400).json({ message: 'Recovery email cannot be identical to your primary email address.' });
+      }
+    }
+
+    const policy = validatePasswordPolicy(password);
+    if (!policy.isValid) {
+      return res.status(400).json({
+        message: policy.message || 'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character.'
+      });
+    }
 
     // ── Try MongoDB first ──
     if (isDbConnected()) {
@@ -117,6 +124,9 @@ const loginUser = async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (!isValidRealEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid, active email address.' });
+    }
 
     // ── Try MongoDB first ──
     if (isDbConnected()) {
@@ -316,17 +326,54 @@ const forgotEmail = async (req, res) => {
 // ── Update Profile & Recovery Email ───────────────────────────────────────────
 const updateProfile = async (req, res) => {
   try {
-    const { email, name, recoveryEmail, avatar } = req.body;
+    const { email, newEmail, name, recoveryEmail, avatar } = req.body;
     if (!email) return res.status(400).json({ message: 'Account email is required.' });
 
     const cleanEmail = email.toLowerCase().trim();
+    if (!isValidRealEmail(cleanEmail)) {
+      return res.status(400).json({ message: 'Current account email address is not a valid, active email.' });
+    }
+
+    let targetEmail = cleanEmail;
+    if (newEmail && newEmail.trim() && newEmail.toLowerCase().trim() !== cleanEmail) {
+      const cleanNewEmail = newEmail.toLowerCase().trim();
+      if (!isValidRealEmail(cleanNewEmail)) {
+        return res.status(400).json({ message: 'Please enter a valid, active new email address (e.g. name@gmail.com).' });
+      }
+      targetEmail = cleanNewEmail;
+    }
+
+    if (name && !isValidRealName(name)) {
+      return res.status(400).json({ message: 'Full name must contain at least 2 real alphabet characters (no numbers).' });
+    }
+
+    const cleanRecovery = recoveryEmail !== undefined ? recoveryEmail.toLowerCase().trim() : undefined;
+    if (cleanRecovery) {
+      if (!isValidRealEmail(cleanRecovery)) {
+        return res.status(400).json({ message: 'Please provide a valid, active recovery email address.' });
+      }
+      if (cleanRecovery === targetEmail) {
+        return res.status(400).json({ message: 'Recovery email cannot be identical to your primary email.' });
+      }
+    }
+
     if (isDbConnected()) {
       const User = require('../models/User');
+
+      // If updating email, ensure targetEmail is not already registered to someone else
+      if (targetEmail !== cleanEmail) {
+        const existingWithNewEmail = await User.findOne({ email: targetEmail });
+        if (existingWithNewEmail) {
+          return res.status(400).json({ message: 'An account with this email address already exists.' });
+        }
+      }
+
       const updated = await User.findOneAndUpdate(
         { email: cleanEmail },
         {
+          email: targetEmail,
           ...(name ? { name: name.trim() } : {}),
-          ...(recoveryEmail !== undefined ? { recoveryEmail: recoveryEmail.toLowerCase().trim() } : {}),
+          ...(cleanRecovery !== undefined ? { recoveryEmail: cleanRecovery } : {}),
           ...(avatar !== undefined ? { avatar } : {})
         },
         { new: true }
@@ -349,17 +396,18 @@ const updateProfile = async (req, res) => {
 
     const memUser = memoryUsers.find(u => u.email === cleanEmail);
     if (memUser) {
+      memUser.email = targetEmail;
       if (name) memUser.name = name.trim();
-      if (recoveryEmail !== undefined) memUser.recoveryEmail = recoveryEmail.toLowerCase().trim();
+      if (cleanRecovery !== undefined) memUser.recoveryEmail = cleanRecovery;
       if (avatar !== undefined) memUser.avatar = avatar;
     }
 
     return res.json({
       message: 'Profile updated.',
       user: {
-        email: cleanEmail,
-        name: name || cleanEmail.split('@')[0],
-        recoveryEmail: recoveryEmail || '',
+        email: targetEmail,
+        name: name || targetEmail.split('@')[0],
+        recoveryEmail: cleanRecovery || '',
         avatar: avatar || ''
       }
     });
@@ -401,5 +449,5 @@ module.exports = {
   forgotEmail,
   updateProfile,
   getAllUsers,
-  isValidPassword
+  validatePasswordPolicy
 };

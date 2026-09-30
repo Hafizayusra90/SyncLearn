@@ -881,17 +881,22 @@ function ActiveRoomPage({
   useEffect(() => {
     if (!roomId) return;
     try {
-      const existing = JSON.parse(localStorage.getItem('synclearn_completed_sessions') || '[]');
-      const newRecord = {
-        code: roomId,
-        title: `Live Session (${roomId})`,
-        date: 'Today',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        students: participants.length > 0 ? participants.length : 1,
-        instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
-      };
-      const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
-      localStorage.setItem('synclearn_completed_sessions', JSON.stringify(updated));
+      const userKey = user?.email
+        ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
+        : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
+      if (userKey) {
+        const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+        const newRecord = {
+          code: roomId,
+          title: `Live Session (${roomId})`,
+          date: 'Today',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          students: participants.length > 0 ? participants.length : 1,
+          instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+        };
+        const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
+        localStorage.setItem(userKey, JSON.stringify(updated));
+      }
     } catch (e) {
       console.warn('Session auto-record error:', e);
     }
@@ -1975,18 +1980,22 @@ function ActiveRoomPage({
             onClick={() => {
               try {
                 // Record completed session history for student/teacher
-                const existing = JSON.parse(localStorage.getItem('synclearn_completed_sessions') || '[]');
-                const newRecord = {
-                  code: roomId,
-                  title: `Live Session (${roomId})`,
-                  date: 'Just now',
-                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  students: participants.length || 1,
-                  instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
-                };
-                // Avoid immediate duplicates
-                const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
-                localStorage.setItem('synclearn_completed_sessions', JSON.stringify(updated));
+                const userKey = user?.email
+                  ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
+                  : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
+                if (userKey) {
+                  const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+                  const newRecord = {
+                    code: roomId,
+                    title: `Live Session (${roomId})`,
+                    date: 'Just now',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    students: participants.length || 1,
+                    instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+                  };
+                  const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
+                  localStorage.setItem(userKey, JSON.stringify(updated));
+                }
               } catch (e) {
                 console.warn('Failed to save session history:', e);
               }
@@ -3554,17 +3563,22 @@ function ActiveRoomPage({
             className="footer-leave-btn"
             onClick={() => {
               try {
-                const existing = JSON.parse(localStorage.getItem('synclearn_completed_sessions') || '[]');
-                const newRecord = {
-                  code: roomId,
-                  title: `Live Session (${roomId})`,
-                  date: 'Just now',
-                  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  students: participants.length || 1,
-                  instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
-                };
-                const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
-                localStorage.setItem('synclearn_completed_sessions', JSON.stringify(updated));
+                const userKey = user?.email
+                  ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
+                  : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
+                if (userKey) {
+                  const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+                  const newRecord = {
+                    code: roomId,
+                    title: `Live Session (${roomId})`,
+                    date: 'Just now',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    students: participants.length || 1,
+                    instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+                  };
+                  const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
+                  localStorage.setItem(userKey, JSON.stringify(updated));
+                }
               } catch (e) {
                 console.warn('Failed to save session history:', e);
               }

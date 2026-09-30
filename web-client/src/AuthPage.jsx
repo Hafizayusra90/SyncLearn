@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, KeyRound, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { isValidRealEmail, isValidRealName, validatePasswordPolicy } from './utils/validation';
 import './AuthPage.css';
 
 function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
@@ -22,13 +23,6 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
 
   const showNotice = (message, type = 'info') => {
     setNotice({ show: true, message, type });
-  };
-
-  // Password Validation Check: Min 8 chars & contains at least 1 special character
-  const isPasswordSecure = (pwd) => {
-    if (!pwd || pwd.length < 8) return false;
-    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/;
-    return specialCharRegex.test(pwd);
   };
 
   // ── Handle Social Login (Google / GitHub) ──
@@ -64,19 +58,37 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     setNotice({ show: false, message: '', type: 'info' });
 
     if (authMode === 'signup') {
-      if (!formData.name.trim()) {
-        showNotice('Please enter your full name.', 'error');
+      if (!formData.name.trim() || !isValidRealName(formData.name)) {
+        showNotice('❌ Please enter your real full name (at least 2 letters, no numbers).', 'error');
         return;
       }
-      if (!isPasswordSecure(formData.password)) {
-        showNotice('Password must be at least 8 characters long and contain at least one special character (e.g. @, #, $, !).', 'error');
+      if (!formData.email.trim() || !isValidRealEmail(formData.email)) {
+        showNotice('❌ Please enter a valid, active email address that exists (e.g. name@gmail.com, student@university.edu).', 'error');
+        return;
+      }
+      if (!formData.recoveryEmail.trim() || !isValidRealEmail(formData.recoveryEmail)) {
+        showNotice('❌ Please enter a valid, active recovery email address.', 'error');
+        return;
+      }
+      if (formData.recoveryEmail.trim().toLowerCase() === formData.email.trim().toLowerCase()) {
+        showNotice('❌ Recovery email cannot be identical to your primary email address.', 'error');
+        return;
+      }
+
+      const policy = validatePasswordPolicy(formData.password);
+      if (!policy.isValid) {
+        showNotice(`❌ Password Policy Requirement: ${policy.missing.join(', ')}.`, 'error');
         return;
       }
     }
 
     if (authMode === 'login') {
-      if (!isPasswordSecure(formData.password)) {
-        showNotice('Password must be at least 8 characters and include a special character (e.g. @, #, $, !).', 'error');
+      if (!formData.email.trim() || !isValidRealEmail(formData.email)) {
+        showNotice('❌ Please enter a valid, active email address.', 'error');
+        return;
+      }
+      if (!formData.password) {
+        showNotice('❌ Please enter your password.', 'error');
         return;
       }
     }
@@ -130,8 +142,9 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
       showNotice('Please enter your account email or recovery email.', 'error');
       return;
     }
-    if (!isPasswordSecure(formData.newPassword)) {
-      showNotice('New password must be at least 8 characters and contain at least one special character (e.g. @, #, $, !).', 'error');
+    const policy = validatePasswordPolicy(formData.newPassword);
+    if (!policy.isValid) {
+      showNotice(`❌ Password Policy Requirement: ${policy.missing.join(', ')}.`, 'error');
       return;
     }
 
@@ -277,7 +290,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
                 </div>
                 <input
                   type="email"
-                  placeholder="name@university.edu"
+                  placeholder="Enter your email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -287,10 +300,11 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
 
               {authMode === 'signup' && (
                 <div className="form-group">
-                  <label>Recovery Email (Optional)</label>
+                  <label>Recovery Email Address (For Account & Password Recovery)</label>
                   <input
                     type="email"
-                    placeholder="recovery@example.com (for password recovery)"
+                    placeholder="Enter recovery email"
+                    required
                     value={formData.recoveryEmail}
                     onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
                     className="auth-input"
@@ -314,7 +328,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
                 <div className="password-input-wrapper">
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Min 8 chars + special char (e.g. Secret@123)"
+                    placeholder="Min 8 chars, A-Z, a-z, 0-9 & special char"
                     required
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -331,14 +345,25 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
                     <span style={{ fontSize: '0.74rem', fontWeight: 600 }}>{showPassword ? 'Hide' : 'Show'}</span>
                   </button>
                 </div>
-                <div className="password-rules-hint">
-                  <span className={formData.password.length >= 8 ? 'rule-met' : 'rule-unmet'}>
-                    {formData.password.length >= 8 ? '✓' : '•'} 8+ characters
-                  </span>
-                  <span className={/[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/.test(formData.password) ? 'rule-met' : 'rule-unmet'}>
-                    {/[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/.test(formData.password) ? '✓' : '•'} Special char (@, #, $, %, !)
-                  </span>
-                </div>
+                {authMode === 'signup' && (
+                  <div className="password-rules-hint">
+                    <span className={formData.password.length >= 8 ? 'rule-met' : 'rule-unmet'}>
+                      {formData.password.length >= 8 ? '✓' : '•'} 8+ chars
+                    </span>
+                    <span className={/[A-Z]/.test(formData.password) ? 'rule-met' : 'rule-unmet'}>
+                      {/[A-Z]/.test(formData.password) ? '✓' : '•'} Uppercase (A-Z)
+                    </span>
+                    <span className={/[a-z]/.test(formData.password) ? 'rule-met' : 'rule-unmet'}>
+                      {/[a-z]/.test(formData.password) ? '✓' : '•'} Lowercase (a-z)
+                    </span>
+                    <span className={/[0-9]/.test(formData.password) ? 'rule-met' : 'rule-unmet'}>
+                      {/[0-9]/.test(formData.password) ? '✓' : '•'} Number (0-9)
+                    </span>
+                    <span className={/[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/.test(formData.password) ? 'rule-met' : 'rule-unmet'}>
+                      {/[!@#$%^&*(),.?":{}|<>_\-+=\\[\]`~]/.test(formData.password) ? '✓' : '•'} Special char (@, #, $, !)
+                    </span>
+                  </div>
+                )}
               </div>
 
               <button type="submit" className="submit-btn">
