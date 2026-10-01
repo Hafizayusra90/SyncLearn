@@ -578,33 +578,6 @@ const VideoPlayer = ({
                   ▶ Load YouTube
                 </button>
               </form>
-
-              {/* Quick 1-Click Presets in Dropzone */}
-              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>OR SELECT A PRESET LECTURE DEMO:</span>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {EDUCATIONAL_PRESETS.map((p, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => loadPresetVideo(p)}
-                      style={{
-                        background: 'rgba(99, 102, 241, 0.12)',
-                        border: '1px solid rgba(99, 102, 241, 0.35)',
-                        color: '#a5b4fc',
-                        padding: '4px 12px',
-                        borderRadius: 20,
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        fontWeight: 600
-                      }}
-                      title={`Instant Launch: ${p.title}`}
-                    >
-                      ▶ {p.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         ) : mediaType === 'youtube' && ytVideoId ? (

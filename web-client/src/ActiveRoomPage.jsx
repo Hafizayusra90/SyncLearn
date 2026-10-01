@@ -3451,7 +3451,7 @@ function ActiveRoomPage({
               title="Classroom Info, WiFi LAN IP & Shareable Links"
             >
               <div className="zoom-btn-icon">ℹ️</div>
-              <span className="zoom-btn-label">Info</span>
+              <span className="zoom-btn-label">Meeting Info</span>
             </button>
 
             {/* Meeting Info Flyout Card (Upward & Compact) */}
@@ -3566,38 +3566,6 @@ function ActiveRoomPage({
               </div>
             )}
           </div>
-
-          {/* End / Leave Meeting Button */}
-          <button
-            type="button"
-            className="footer-leave-btn"
-            onClick={() => {
-              try {
-                const userKey = user?.email
-                  ? `synclearn_completed_sessions_${user.email.toLowerCase().trim()}`
-                  : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
-                if (userKey) {
-                  const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
-                  const newRecord = {
-                    code: roomId,
-                    title: `Live Session (${roomId})`,
-                    date: 'Just now',
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    students: participants.length || 1,
-                    instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
-                  };
-                  const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
-                  localStorage.setItem(userKey, JSON.stringify(updated));
-                }
-              } catch (e) {
-                console.warn('Failed to save session history:', e);
-              }
-              if (onLeaveRoom) onLeaveRoom();
-            }}
-            title={isInstructor ? "End Classroom Meeting" : "Leave Classroom"}
-          >
-            {isInstructor ? "End Meeting" : "Leave"}
-          </button>
         </div>
       </footer>
 

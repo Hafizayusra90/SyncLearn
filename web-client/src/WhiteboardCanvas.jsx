@@ -216,7 +216,15 @@ function WhiteboardCanvas({ roomId, user }) {
     // Broadcast canvas update to all students
     const snapshotUrl = canvas.toDataURL();
     socket.emit('whiteboard-restore-snapshot', { roomId, snapshot: snapshotUrl });
-    showToast('📌 Notes stamped onto Whiteboard for students!');
+
+    try {
+      if (roomId) {
+        localStorage.setItem(`synclearn_typed_notes_${roomId}`, typedNotes);
+      }
+    } catch (e) {
+      console.warn('Failed to save typed notes:', e);
+    }
+    showToast('📌 Notes pinned to Whiteboard & saved!');
   }, [typedNotes, typingFontSize, typingTextColor, roomId, pushUndoState]);
 
   // Resize handler using ResizeObserver
@@ -760,12 +768,12 @@ function WhiteboardCanvas({ roomId, user }) {
                     className="btn-stamp-board"
                     onClick={handleStampNotesToCanvas}
                     disabled={!typedNotes.trim()}
-                    title="Pin typed note onto the whiteboard canvas for all students"
+                    title="Pin typed note onto the whiteboard canvas for all students and save"
                   >
-                    <span>📌 Pin to Whiteboard</span>
+                    <span>📌 Pin and Save</span>
                   </button>
                   <span className="wb-typing-hint">
-                    💡 Tip: Click "Pin to Whiteboard" to stamp your notes onto the canvas.
+                    💡 Tip: Click "Pin and Save" to stamp your notes onto the canvas.
                   </span>
                 </div>
               </>
