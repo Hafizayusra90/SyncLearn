@@ -108,8 +108,8 @@ const syncHandler = (io, socket) => {
       }
     })();
 
-    // Notify peers for WebRTC
-    socket.to(roomId).emit('user-connected', userId || socket.id);
+    // Notify peers for WebRTC (always use socket.id)
+    socket.to(roomId).emit('user-connected', socket.id);
 
     if (userRole === 'instructor') {
       const instName = userName || 'Instructor';

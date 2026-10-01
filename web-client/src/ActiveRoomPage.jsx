@@ -19,6 +19,8 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [peerVolume, setPeerVolume] = useState(100);
 
+  if (!peerInfo) return null;
+
   const isVideoOn = mediaState?.videoOn !== false;
   const isMicOn = mediaState?.micOn !== false;
   const isInstructorPeer = peerInfo?.userRole === 'instructor';
@@ -1207,7 +1209,52 @@ function ActiveRoomPage({
 
     // Room Roster & Lock updates
     socket.on('room-participants-update', list => {
-      if (Array.isArray(list)) setParticipants(list);
+      if (Array.isArray(list)) {
+        setParticipants(list);
+        const activeSocketIds = new Set(list.map(p => p.socketId));
+
+        // Immediately filter out and destroy any peers who have left the room
+        setPeers(prev => {
+          const toKeep = [];
+          prev.forEach(p => {
+            if (activeSocketIds.has(p.peerID)) {
+              toKeep.push(p);
+            } else {
+              try { p.peer?.destroy(); } catch (e) {}
+            }
+          });
+          peersRef.current = toKeep;
+          return toKeep;
+        });
+
+        // ── Real-time Session Attendance Tracking ──
+        try {
+          const storageKey = 'synclearn_attendance_' + cleanRoom;
+          let currentRoster = [];
+          try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw) currentRoster = JSON.parse(raw);
+          } catch(e) {}
+          if (!Array.isArray(currentRoster)) currentRoster = [];
+
+          const existingNames = new Set(currentRoster.map(r => r.name));
+          list.forEach(p => {
+            const displayName = p.userName || (p.userRole === 'instructor' ? 'Instructor' : 'Student');
+            if (!existingNames.has(displayName)) {
+              const isHost = p.userRole === 'instructor';
+              const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              currentRoster.push({
+                name: isHost ? `${displayName} (Instructor)` : displayName,
+                joinTime: nowTime,
+                status: isHost ? 'Host / Present' : 'Present',
+                verification: 'Verified'
+              });
+              existingNames.add(displayName);
+            }
+          });
+          localStorage.setItem(storageKey, JSON.stringify(currentRoster));
+        } catch(e) {}
+      }
     });
 
     socket.on('room-lock-status', ({ isLocked }) => {
@@ -2660,17 +2707,16 @@ function ActiveRoomPage({
               user={user}
               onOpenSettings={onOpenSettings}
             />
-            {peers.map(peerObj => {
-              const pInfo = participants.find(p => p.socketId === peerObj.peerID);
-              const mState = peerMediaStates[peerObj.peerID];
-              const isInst = pInfo?.userRole === 'instructor';
-              const pMic = mState?.micOn !== false;
-              const pVid = mState?.videoOn !== false;
-              return (
-                <div className="video-card" key={peerObj.peerID}>
-                  <RemoteVideo peer={peerObj.peer} peerInfo={pInfo} mediaState={mState} />
-                </div>
-              );
+            {peers
+              .filter(peerObj => participants.some(p => p.socketId === peerObj.peerID))
+              .map(peerObj => {
+                const pInfo = participants.find(p => p.socketId === peerObj.peerID);
+                const mState = peerMediaStates[peerObj.peerID];
+                return (
+                  <div className="video-card" key={peerObj.peerID}>
+                    <RemoteVideo peer={peerObj.peer} peerInfo={pInfo} mediaState={mState} />
+                  </div>
+                );
             })}
           </div>
 
