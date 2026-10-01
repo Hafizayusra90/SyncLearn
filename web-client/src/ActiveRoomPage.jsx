@@ -170,28 +170,48 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           >
             {(peerName || 'U').charAt(0).toUpperCase()}
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.92rem', display: 'block' }}>
-              {isInstructorPeer ? '👨‍🏫 ' : '🎓 '}{peerName}
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              marginTop: 4,
-              background: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.45)',
-              color: '#fca5a5',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              padding: '2px 8px',
-              borderRadius: 99
-            }}>
-              🚫 Camera Off
-            </span>
-          </div>
         </div>
       )}
+
+      {/* ── Bottom Corner Label & Media Status (OFF / ON) ── */}
+      <span className="video-label" style={{ zIndex: 20 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {isInstructorPeer ? '👨‍🏫 ' : '🎓 '}
+          <strong style={{ color: isInstructorPeer ? '#38bdf8' : '#ffffff' }}>
+            {peerName}
+          </strong>
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <span
+            title={isMicOn ? 'Microphone Active' : 'Microphone Muted'}
+            style={{
+              background: isMicOn ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+              border: `1px solid ${isMicOn ? '#22c55e' : '#ef4444'}`,
+              padding: '1px 5px',
+              borderRadius: 4,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: isMicOn ? '#4ade80' : '#f87171'
+            }}
+          >
+            {isMicOn ? '🎙️ ON' : '🔇 OFF'}
+          </span>
+          <span
+            title={isVideoOn ? 'Camera Active' : 'Camera Off'}
+            style={{
+              background: isVideoOn ? 'rgba(56, 189, 248, 0.25)' : 'rgba(148, 163, 184, 0.25)',
+              border: `1px solid ${isVideoOn ? '#38bdf8' : '#94a3b8'}`,
+              padding: '1px 5px',
+              borderRadius: 4,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: isVideoOn ? '#38bdf8' : '#cbd5e1'
+            }}
+          >
+            {isVideoOn ? '📹 ON' : '🚫 OFF'}
+          </span>
+        </span>
+      </span>
 
       {/* Speaking badge indicator (top-left) */}
       {isSpeaking && (
@@ -215,47 +235,6 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           <span>Speaking...</span>
         </div>
       )}
-
-      {/* ── Top-Right Status Badges: Mic & Camera ON/OFF (Image 4) ── */}
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        alignItems: 'flex-end',
-        zIndex: 5
-      }}>
-        <span style={{
-          background: isMicOn ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-          color: '#fff',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          padding: '2px 7px',
-          borderRadius: 99,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
-        }}>
-          {isMicOn ? '🎙️ Mic ON' : '🔇 Muted'}
-        </span>
-        <span style={{
-          background: isVideoOn ? 'rgba(2, 132, 199, 0.9)' : 'rgba(100, 116, 139, 0.9)',
-          color: '#fff',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          padding: '2px 7px',
-          borderRadius: 99,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
-        }}>
-          {isVideoOn ? '📹 Cam ON' : '🚫 Cam OFF'}
-        </span>
-      </div>
 
       {audioBlocked && (
         <button
@@ -345,46 +324,7 @@ const LocalVideo = ({ stream, isScreenSharing, videoOn, isSpeaking, micOn, isBac
           ✨ Blur On
         </span>
       )}
-      {/* ── Top-Right Status Badges for Local User ── */}
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-        alignItems: 'flex-end',
-        zIndex: 5
-      }}>
-        <span style={{
-          background: micOn ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-          color: '#fff',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          padding: '2px 7px',
-          borderRadius: 99,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
-        }}>
-          {micOn ? '🎙️ Mic ON' : '🔇 Muted'}
-        </span>
-        <span style={{
-          background: videoOn ? 'rgba(2, 132, 199, 0.9)' : 'rgba(100, 116, 139, 0.9)',
-          color: '#fff',
-          fontSize: '0.68rem',
-          fontWeight: 700,
-          padding: '2px 7px',
-          borderRadius: 99,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
-        }}>
-          {videoOn ? '📹 Cam ON' : '🚫 Cam OFF'}
-        </span>
-      </div>
+
 
       <span className="video-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -2721,44 +2661,6 @@ function ActiveRoomPage({
               return (
                 <div className="video-card" key={peerObj.peerID}>
                   <RemoteVideo peer={peerObj.peer} peerInfo={pInfo} mediaState={mState} />
-                  <span className="video-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {isInst ? '👨‍🏫 ' : '🎓 '}
-                      <strong style={{ color: isInst ? '#38bdf8' : '#ffffff' }}>
-                        {pInfo?.userName || (isInst ? 'Instructor' : 'Peer')}
-                      </strong>
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                      <span
-                        title={pMic ? 'Microphone Active' : 'Microphone Muted'}
-                        style={{
-                          background: pMic ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
-                          border: `1px solid ${pMic ? '#22c55e' : '#ef4444'}`,
-                          padding: '1px 5px',
-                          borderRadius: 4,
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          color: pMic ? '#4ade80' : '#f87171'
-                        }}
-                      >
-                        {pMic ? '🎙️ ON' : '🔇 OFF'}
-                      </span>
-                      <span
-                        title={pVid ? 'Camera Active' : 'Camera Off'}
-                        style={{
-                          background: pVid ? 'rgba(56, 189, 248, 0.25)' : 'rgba(148, 163, 184, 0.25)',
-                          border: `1px solid ${pVid ? '#38bdf8' : '#94a3b8'}`,
-                          padding: '1px 5px',
-                          borderRadius: 4,
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          color: pVid ? '#38bdf8' : '#cbd5e1'
-                        }}
-                      >
-                        {pVid ? '📹 ON' : '🚫 OFF'}
-                      </span>
-                    </span>
-                  </span>
                 </div>
               );
             })}
