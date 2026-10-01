@@ -546,7 +546,7 @@ function ActiveRoomPage({
   const [isRoomActionsOpen, setIsRoomActionsOpen] = useState(false);
   const [isStudioDockOpen, setIsStudioDockOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const [activeCategory, setActiveCategory] = useState('workspace'); // 'workspace' | 'tools' | 'host'
+  const [activeCategory, setActiveCategory] = useState(null); // By default closed (bnd), opens whichever category user clicks
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
 
   // Close header 3-dots menu on click outside
@@ -2222,7 +2222,15 @@ function ActiveRoomPage({
             <button
               type="button"
               className="sidebar-hamburger-btn"
-              onClick={() => setIsSidebarCollapsed(prev => !prev)}
+              onClick={() => {
+                setIsSidebarCollapsed(prev => {
+                  const next = !prev;
+                  if (!next) {
+                    setActiveCategory(null);
+                  }
+                  return next;
+                });
+              }}
               title={isSidebarCollapsed ? "Expand Sidebar (≡)" : "Collapse Sidebar to Icons (≡)"}
             >
               <span className="hamburger-bars">
