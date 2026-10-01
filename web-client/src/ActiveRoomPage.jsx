@@ -433,6 +433,16 @@ function ActiveRoomPage({
   const [isRoomActionsOpen, setIsRoomActionsOpen] = useState(false);
   const [isStudioDockOpen, setIsStudioDockOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('workspace'); // 'workspace' | 'tools' | 'host'
+  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
+
+  // Close header 3-dots menu on click outside
+  useEffect(() => {
+    if (!isHeaderMenuOpen) return;
+    const handleCloseHeaderMenu = () => setIsHeaderMenuOpen(false);
+    window.addEventListener('click', handleCloseHeaderMenu);
+    return () => window.removeEventListener('click', handleCloseHeaderMenu);
+  }, [isHeaderMenuOpen]);
 
   // Host & Room state
   const [participants, setParticipants] = useState([]);
@@ -2006,20 +2016,77 @@ function ActiveRoomPage({
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          <button 
-            type="button" 
-            className="leave-btn" 
-            onClick={() => {
-              if (isInstructor) {
-                setIsLeaveModalOpen(true);
-              } else {
-                handleRecordSessionHistoryAndLeave();
-              }
-            }}
-            title="End or Leave Live Classroom Meeting"
-          >
-            🛑 End Meeting
-          </button>
+          {/* Header 3-Dots Action Menu (Image 5) */}
+          <div className="header-more-actions" style={{ position: 'relative' }}>
+            <button 
+              type="button" 
+              className="header-dots-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsHeaderMenuOpen(prev => !prev);
+              }}
+              title="Session Actions (⋮)"
+              aria-label="Classroom actions menu"
+            >
+              ⋮
+            </button>
+
+            {isHeaderMenuOpen && (
+              <div className="header-dropdown-menu" onClick={e => e.stopPropagation()}>
+                {isInstructor ? (
+                  <>
+                    <button
+                      type="button"
+                      className="header-dropdown-item end-all-item"
+                      onClick={() => {
+                        setIsHeaderMenuOpen(false);
+                        socket.emit('end-meeting-for-all', { roomId: cleanRoomId(roomId) });
+                        handleRecordSessionHistoryAndLeave();
+                      }}
+                      title="End meeting for all participants"
+                    >
+                      <span style={{ fontSize: '1.15rem' }}>🛑</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: 800, color: '#fca5a5', fontSize: '0.85rem' }}>End Meeting for All</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Disconnect everyone & end class</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="header-dropdown-item leave-item"
+                      onClick={() => {
+                        setIsHeaderMenuOpen(false);
+                        handleRecordSessionHistoryAndLeave();
+                      }}
+                      title="Leave meeting and return to dashboard"
+                    >
+                      <span style={{ fontSize: '1.15rem' }}>⬅️</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.85rem' }}>Leave Meeting</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Exit room (keep session running)</div>
+                      </div>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="header-dropdown-item leave-item"
+                    onClick={() => {
+                      setIsHeaderMenuOpen(false);
+                      handleRecordSessionHistoryAndLeave();
+                    }}
+                    title="Leave meeting and return to dashboard"
+                  >
+                    <span style={{ fontSize: '1.15rem' }}>⬅️</span>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.85rem' }}>Leave Meeting</div>
+                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Exit classroom</div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -2049,315 +2116,387 @@ function ActiveRoomPage({
             )}
           </div>
 
-          {/* Scrollable Items Column (Scrollable for instructor & all screen sizes) */}
+          {/* Scrollable Items Column */}
           <div className="sidebar-scroll-items">
-            {/* WORKSPACES */}
-            {!isSidebarCollapsed && <div className="sidebar-section-heading">WORKSPACES</div>}
-
-            {/* 1. Dual Whiteboard */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${workspaceView === 'whiteboard' ? 'active' : ''}`}
-              onClick={() => handleSetWorkspaceView('whiteboard')}
-              title="Dual Whiteboard (Typing + Canvas)"
-            >
-              <span className="sidebar-item-icon">✏️</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Dual Whiteboard</span>
-                  <span className="sidebar-item-sub">Typing & Canvas Studio</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && <span className="sidebar-item-badge blue">Board</span>}
-            </button>
-
-            {/* 2. YouTube & Video Sync */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${workspaceView === 'video' ? 'active' : ''}`}
-              onClick={() => handleSetWorkspaceView('video')}
-              title="Lecture Video & YouTube Sync"
-            >
-              <span className="sidebar-item-icon">🎬</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">YouTube & Video</span>
-                  <span className="sidebar-item-sub">Synced Watch Party</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && <span className="sidebar-item-badge red">Video</span>}
-            </button>
-
-            {/* 3. All-In-One Unified View */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${workspaceView === 'all' ? 'active' : ''}`}
-              onClick={() => handleSetWorkspaceView('all')}
-              title="All-In-One Unified View"
-            >
-              <span className="sidebar-item-icon">🔲</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">All-In-One View</span>
-                  <span className="sidebar-item-sub">Split Screen Layout</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && <span className="sidebar-item-badge purple">Unified</span>}
-            </button>
-
-            {/* 4. Camera Grid View */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${workspaceView === 'cameras' ? 'active' : ''}`}
-              onClick={() => handleSetWorkspaceView('cameras')}
-              title="Camera Video Call Grid"
-            >
-              <span className="sidebar-item-icon">📹</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Camera Grid</span>
-                  <span className="sidebar-item-sub">Webcams & Gallery</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && <span className={`sidebar-status-dot ${videoOn ? 'live' : 'off'}`} />}
-            </button>
-
-            {/* TOOLS */}
-            {!isSidebarCollapsed && <div className="sidebar-section-heading">TOOLS & APPS</div>}
-
-            {/* 5. Screen Sharing */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${isScreenSharing ? 'active' : ''}`}
-              onClick={toggleScreenShare}
-              title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
-            >
-              <span className="sidebar-item-icon">🖥️</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">{isScreenSharing ? 'Stop Sharing' : 'Share Screen'}</span>
-                  <span className="sidebar-item-sub">Present your screen</span>
-                </div>
-              )}
-            </button>
-
-            {/* 7. AI Co-Teacher Tutor */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
-              onClick={() => setActiveTab(prev => prev === 'ai' ? null : 'ai')}
-              title="AI Co-Teacher Tutor & Instant Doubt Solver"
-            >
-              <span className="sidebar-item-icon">🤖</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">AI Co-Teacher</span>
-                  <span className="sidebar-item-sub">Instant Doubt Solver</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && <span className="sidebar-item-badge amber">AI</span>}
-            </button>
-
-            {/* 8. Live Lecture Notes */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${activeTab === 'notes' ? 'active' : ''}`}
-              onClick={() => setActiveTab(prev => prev === 'notes' ? null : 'notes')}
-              title="Live Lecture Transcribed Notes"
-            >
-              <span className="sidebar-item-icon">🎙️</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Lecture Notes</span>
-                  <span className="sidebar-item-sub">{transcription.length > 0 ? `${transcription.length} notes captured` : 'Auto-transcription'}</span>
-                </div>
-              )}
-            </button>
-
-            {/* 9. AI Quiz Generator / Take Quiz */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${activeQuizData && !isInstructor ? 'active' : ''}`}
-              onClick={() => setIsQuizModalOpen(true)}
-              title={isInstructor ? "Launch AI Lecture Pop Quiz on Current Topic" : (activeQuizData ? `Take Live Quiz: ${activeQuizData.topic || 'Active'}` : "Take AI Lecture Quiz")}
-            >
-              <span className="sidebar-item-icon">📝</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : (activeQuizData ? `Quiz: ${activeQuizData.topic || 'Active'}` : 'Take AI Quiz')}</span>
-                  <span className="sidebar-item-sub">{isInstructor ? 'Topic-Based Quiz' : (activeQuizData ? '1 Live Quiz Available' : 'Lecture Assessment')}</span>
-                </div>
-              )}
-              {!isSidebarCollapsed && activeQuizData && !isInstructor && (
-                <span className="sidebar-item-badge amber">LIVE</span>
-              )}
-            </button>
-
-            {/* 10. Breakout Discussion Pods */}
-            <button
-              type="button"
-              className="sidebar-nav-item"
-              onClick={() => setIsBreakoutModalOpen(true)}
-              title="Breakout Discussion Rooms & Pods"
-            >
-              <span className="sidebar-item-icon">💬</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Breakout Pods</span>
-                  <span className="sidebar-item-sub">Group Collaboration</span>
-                </div>
-              )}
-            </button>
-
-            {/* 11. Record Session */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${isRecordingSession ? 'recording' : ''}`}
-              onClick={toggleSessionRecording}
-              title={isRecordingSession ? "Stop Recording" : "Record Session & Download"}
-            >
-              <span className="sidebar-item-icon">{isRecordingSession ? '⏹️' : '⏺️'}</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">{isRecordingSession ? 'Recording...' : 'Record Lecture'}</span>
-                  <span className="sidebar-item-sub">Save to PC / Library</span>
-                </div>
-              )}
-            </button>
-
-            {/* 12. Live Captions (CC) Toggle */}
-            <button
-              type="button"
-              className={`sidebar-nav-item ${isCaptionsEnabled ? 'active' : ''}`}
-              onClick={() => {
-                const nextState = !isCaptionsEnabled;
-                setIsCaptionsEnabled(nextState);
-                if (nextState) {
-                  showToast('🔤 Live Captions turned ON!', 'success');
-                  if (isInstructor) {
-                    handleSimulateLiveCaption('Live lecture speech captions active. Welcome to SyncLearn classroom!');
-                  }
-                } else {
-                  showToast('🔤 Live Captions turned OFF', 'info');
-                  setLiveCaption(null);
-                  socket.emit('clear-live-caption', { roomId: cleanRoomId(roomId) });
-                }
-              }}
-              title={isCaptionsEnabled ? "Turn OFF Live Subtitles (CC)" : "Turn ON Live Subtitles (CC)"}
-            >
-              <span className="sidebar-item-icon">🔤</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Live Captions</span>
-                  <span className="sidebar-item-sub">{isCaptionsEnabled ? 'CC Active' : 'CC Off'}</span>
-                </div>
-              )}
-            </button>
-
-            {/* 13. Raise Hand (For Students) */}
-            {!isInstructor && (
-              <button
-                type="button"
-                className={`sidebar-nav-item ${hasHandRaised ? 'active' : ''}`}
-                onClick={toggleRaiseHand}
-                title={hasHandRaised ? "Lower Hand" : "Raise Hand"}
-              >
-                <span className="sidebar-item-icon">✋</span>
-                {!isSidebarCollapsed && (
-                  <div className="sidebar-item-label">
-                    <span className="sidebar-item-title">{hasHandRaised ? 'Hand Raised' : 'Raise Hand'}</span>
-                    <span className="sidebar-item-sub">Notify Teacher</span>
-                  </div>
-                )}
-              </button>
-            )}
-
-            {/* INSTRUCTOR MANAGEMENT */}
-            {isInstructor && (
-              <>
-                {!isSidebarCollapsed && <div className="sidebar-section-heading">HOST MANAGEMENT</div>}
-
-                {/* Host Controls */}
+            {isSidebarCollapsed ? (
+              /* Collapsed Mode (Image 4): Exactly 4 Main Category Icons */
+              <div className="sidebar-collapsed-icons-group">
                 <button
                   type="button"
-                  className={`sidebar-nav-item ${activeTab === 'host' ? 'active' : ''}`}
-                  onClick={() => setActiveTab(prev => prev === 'host' ? null : 'host')}
-                  title="Open Instructor Host Controls & Roster"
+                  className={`sidebar-nav-item ${activeCategory === 'workspace' ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsSidebarCollapsed(false);
+                    setActiveCategory('workspace');
+                  }}
+                  title="Workspaces (Dual Whiteboard, Video, All-In-One, Cameras)"
+                >
+                  <span className="sidebar-item-icon">🔲</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`sidebar-nav-item ${activeCategory === 'tools' ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsSidebarCollapsed(false);
+                    setActiveCategory('tools');
+                  }}
+                  title="Tools & Apps (Screen Share, AI Tutor, Quiz, Notes, CC)"
+                >
+                  <span className="sidebar-item-icon">🛠️</span>
+                </button>
+
+                {isInstructor && (
+                  <button
+                    type="button"
+                    className={`sidebar-nav-item ${activeCategory === 'host' ? 'active' : ''}`}
+                    onClick={() => {
+                      setIsSidebarCollapsed(false);
+                      setActiveCategory('host');
+                    }}
+                    title="Host Controls & Management"
+                  >
+                    <span className="sidebar-item-icon">👑</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="sidebar-nav-item"
+                  onClick={() => onOpenSettings && onOpenSettings('general')}
+                  title="Settings (Audio, Video, Theme)"
                 >
                   <span className="sidebar-item-icon">⚙️</span>
-                  {!isSidebarCollapsed && (
-                    <div className="sidebar-item-label">
-                      <span className="sidebar-item-title">Host Controls</span>
-                      <span className="sidebar-item-sub">Mute All & Student Cams</span>
+                </button>
+              </div>
+            ) : (
+              /* Expanded Mode (Image 3): 4 Categories with Icon + Name & Accordion Content */
+              <div className="sidebar-categories-accordion">
+                {/* 1. Workspaces Category */}
+                <div className="sidebar-category-group">
+                  <button
+                    type="button"
+                    className={`sidebar-category-header ${activeCategory === 'workspace' ? 'category-active' : ''}`}
+                    onClick={() => setActiveCategory(prev => prev === 'workspace' ? null : 'workspace')}
+                    title="Click to expand/collapse Workspaces"
+                  >
+                    <div className="category-header-main">
+                      <span className="sidebar-item-icon">🔲</span>
+                      <span className="category-header-title">Workspaces</span>
+                    </div>
+                    <span className="category-chevron">{activeCategory === 'workspace' ? '▾' : '▸'}</span>
+                  </button>
+
+                  {activeCategory === 'workspace' && (
+                    <div className="sidebar-sub-items">
+                      {/* 1. Dual Whiteboard */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${workspaceView === 'whiteboard' ? 'active' : ''}`}
+                        onClick={() => handleSetWorkspaceView('whiteboard')}
+                        title="Dual Whiteboard (Typing + Canvas)"
+                      >
+                        <span className="sidebar-item-icon">✏️</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">Dual Whiteboard</span>
+                          <span className="sidebar-item-sub">Typing & Canvas Studio</span>
+                        </div>
+                        <span className="sidebar-item-badge blue">Board</span>
+                      </button>
+
+                      {/* 2. YouTube & Video Sync */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${workspaceView === 'video' ? 'active' : ''}`}
+                        onClick={() => handleSetWorkspaceView('video')}
+                        title="Lecture Video & YouTube Sync"
+                      >
+                        <span className="sidebar-item-icon">🎬</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">YouTube & Video</span>
+                          <span className="sidebar-item-sub">Synced Watch Party</span>
+                        </div>
+                        <span className="sidebar-item-badge red">Video</span>
+                      </button>
+
+                      {/* 3. All-In-One Unified View */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${workspaceView === 'all' ? 'active' : ''}`}
+                        onClick={() => handleSetWorkspaceView('all')}
+                        title="All-In-One Unified View"
+                      >
+                        <span className="sidebar-item-icon">🔲</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">All-In-One View</span>
+                          <span className="sidebar-item-sub">Split Screen Layout</span>
+                        </div>
+                        <span className="sidebar-item-badge purple">Unified</span>
+                      </button>
+
+                      {/* 4. Camera Grid View */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${workspaceView === 'cameras' ? 'active' : ''}`}
+                        onClick={() => handleSetWorkspaceView('cameras')}
+                        title="Camera Video Call Grid"
+                      >
+                        <span className="sidebar-item-icon">📹</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">Camera Grid</span>
+                          <span className="sidebar-item-sub">Webcams & Gallery</span>
+                        </div>
+                        <span className={`sidebar-status-dot ${videoOn ? 'live' : 'off'}`} />
+                      </button>
                     </div>
                   )}
-                </button>
-
-                {/* Lock Room */}
-                <button
-                  type="button"
-                  className={`sidebar-nav-item ${isRoomLocked ? 'locked' : ''}`}
-                  onClick={handleToggleRoomLock}
-                  title={isRoomLocked ? "Unlock Classroom" : "Lock Classroom"}
-                >
-                  <span className="sidebar-item-icon">{isRoomLocked ? '🔒' : '🔓'}</span>
-                  {!isSidebarCollapsed && (
-                    <div className="sidebar-item-label">
-                      <span className="sidebar-item-title">{isRoomLocked ? 'Room Locked' : 'Lock Room'}</span>
-                      <span className="sidebar-item-sub">{isRoomLocked ? 'No new joins' : 'Open for joins'}</span>
-                    </div>
-                  )}
-                </button>
-
-                {/* Copy Invite Link */}
-                <button
-                  type="button"
-                  className="sidebar-nav-item"
-                  onClick={copyInviteLink}
-                  title="Copy Direct Shareable Invite Link"
-                >
-                  <span className="sidebar-item-icon">🔗</span>
-                  {!isSidebarCollapsed && (
-                    <div className="sidebar-item-label">
-                      <span className="sidebar-item-title">Copy Invite Link</span>
-                      <span className="sidebar-item-sub">Direct join URL</span>
-                    </div>
-                  )}
-                </button>
-
-                {/* WhatsApp & Email Full Invite */}
-                <button
-                  type="button"
-                  className="sidebar-nav-item"
-                  onClick={copyClassInvitation}
-                  title="Copy complete formatted class invitation"
-                >
-                  <span className="sidebar-item-icon">📋</span>
-                  {!isSidebarCollapsed && (
-                    <div className="sidebar-item-label">
-                      <span className="sidebar-item-title">Class Invite</span>
-                      <span className="sidebar-item-sub">WhatsApp & Email text</span>
-                    </div>
-                  )}
-                </button>
-              </>
-            )}
-
-            {/* General Settings */}
-            <button
-              type="button"
-              className="sidebar-nav-item"
-              onClick={() => onOpenSettings && onOpenSettings('general')}
-              title="Classroom & Device Settings"
-            >
-              <span className="sidebar-item-icon">⚙️</span>
-              {!isSidebarCollapsed && (
-                <div className="sidebar-item-label">
-                  <span className="sidebar-item-title">Settings</span>
-                  <span className="sidebar-item-sub">Audio, Video & Theme</span>
                 </div>
-              )}
-            </button>
+
+                {/* 2. Tools & Apps Category */}
+                <div className="sidebar-category-group">
+                  <button
+                    type="button"
+                    className={`sidebar-category-header ${activeCategory === 'tools' ? 'category-active' : ''}`}
+                    onClick={() => setActiveCategory(prev => prev === 'tools' ? null : 'tools')}
+                    title="Click to expand/collapse Tools & Apps"
+                  >
+                    <div className="category-header-main">
+                      <span className="sidebar-item-icon">🛠️</span>
+                      <span className="category-header-title">Tools & Apps</span>
+                    </div>
+                    <span className="category-chevron">{activeCategory === 'tools' ? '▾' : '▸'}</span>
+                  </button>
+
+                  {activeCategory === 'tools' && (
+                    <div className="sidebar-sub-items">
+                      {/* Share Screen */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${isScreenSharing ? 'active' : ''}`}
+                        onClick={toggleScreenShare}
+                        title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
+                      >
+                        <span className="sidebar-item-icon">🖥️</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">{isScreenSharing ? 'Stop Sharing' : 'Share Screen'}</span>
+                          <span className="sidebar-item-sub">Present your screen</span>
+                        </div>
+                      </button>
+
+                      {/* AI Co-Teacher Tutor */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
+                        onClick={() => setActiveTab(prev => prev === 'ai' ? null : 'ai')}
+                        title="AI Co-Teacher Tutor & Instant Doubt Solver"
+                      >
+                        <span className="sidebar-item-icon">🤖</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">AI Co-Teacher</span>
+                          <span className="sidebar-item-sub">Instant Doubt Solver</span>
+                        </div>
+                        <span className="sidebar-item-badge amber">AI</span>
+                      </button>
+
+                      {/* Live Lecture Notes */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${activeTab === 'notes' ? 'active' : ''}`}
+                        onClick={() => setActiveTab(prev => prev === 'notes' ? null : 'notes')}
+                        title="Live Lecture Transcribed Notes"
+                      >
+                        <span className="sidebar-item-icon">🎙️</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">Lecture Notes</span>
+                          <span className="sidebar-item-sub">{transcription.length > 0 ? `${transcription.length} notes captured` : 'Auto-transcription'}</span>
+                        </div>
+                      </button>
+
+                      {/* AI Quiz Generator / Take Quiz */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${activeQuizData && !isInstructor ? 'active' : ''}`}
+                        onClick={() => setIsQuizModalOpen(true)}
+                        title={isInstructor ? "Launch AI Lecture Pop Quiz on Current Topic" : (activeQuizData ? `Take Live Quiz: ${activeQuizData.topic || 'Active'}` : "Take AI Lecture Quiz")}
+                      >
+                        <span className="sidebar-item-icon">📝</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : (activeQuizData ? `Quiz: ${activeQuizData.topic || 'Active'}` : 'Take AI Quiz')}</span>
+                          <span className="sidebar-item-sub">{isInstructor ? 'Topic-Based Quiz' : (activeQuizData ? '1 Live Quiz Available' : 'Lecture Assessment')}</span>
+                        </div>
+                        {activeQuizData && !isInstructor && (
+                          <span className="sidebar-item-badge amber">LIVE</span>
+                        )}
+                      </button>
+
+                      {/* Breakout Discussion Pods */}
+                      <button
+                        type="button"
+                        className="sidebar-nav-item"
+                        onClick={() => setIsBreakoutModalOpen(true)}
+                        title="Breakout Discussion Rooms & Pods"
+                      >
+                        <span className="sidebar-item-icon">💬</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">Breakout Pods</span>
+                          <span className="sidebar-item-sub">Group Collaboration</span>
+                        </div>
+                      </button>
+
+                      {/* Record Session */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${isRecordingSession ? 'recording' : ''}`}
+                        onClick={toggleSessionRecording}
+                        title={isRecordingSession ? "Stop Recording" : "Record Session & Download"}
+                      >
+                        <span className="sidebar-item-icon">{isRecordingSession ? '⏹️' : '⏺️'}</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">{isRecordingSession ? 'Recording...' : 'Record Lecture'}</span>
+                          <span className="sidebar-item-sub">Save to PC / Library</span>
+                        </div>
+                      </button>
+
+                      {/* Live Captions (CC) Toggle */}
+                      <button
+                        type="button"
+                        className={`sidebar-nav-item ${isCaptionsEnabled ? 'active' : ''}`}
+                        onClick={() => {
+                          const nextState = !isCaptionsEnabled;
+                          setIsCaptionsEnabled(nextState);
+                          if (nextState) {
+                            showToast('🔤 Live Captions turned ON!', 'success');
+                            if (isInstructor) {
+                              handleSimulateLiveCaption('Live lecture speech captions active. Welcome to SyncLearn classroom!');
+                            }
+                          } else {
+                            showToast('🔤 Live Captions turned OFF', 'info');
+                            setLiveCaption(null);
+                            socket.emit('clear-live-caption', { roomId: cleanRoomId(roomId) });
+                          }
+                        }}
+                        title={isCaptionsEnabled ? "Turn OFF Live Subtitles (CC)" : "Turn ON Live Subtitles (CC)"}
+                      >
+                        <span className="sidebar-item-icon">🔤</span>
+                        <div className="sidebar-item-label">
+                          <span className="sidebar-item-title">Live Captions</span>
+                          <span className="sidebar-item-sub">{isCaptionsEnabled ? 'CC Active' : 'CC Off'}</span>
+                        </div>
+                      </button>
+
+                      {/* Raise Hand (For Students) */}
+                      {!isInstructor && (
+                        <button
+                          type="button"
+                          className={`sidebar-nav-item ${hasHandRaised ? 'active' : ''}`}
+                          onClick={toggleRaiseHand}
+                          title={hasHandRaised ? "Lower Hand" : "Raise Hand"}
+                        >
+                          <span className="sidebar-item-icon">✋</span>
+                          <div className="sidebar-item-label">
+                            <span className="sidebar-item-title">{hasHandRaised ? 'Hand Raised' : 'Raise Hand'}</span>
+                            <span className="sidebar-item-sub">Notify Teacher</span>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Host Management (Instructor only) */}
+                {isInstructor && (
+                  <div className="sidebar-category-group">
+                    <button
+                      type="button"
+                      className={`sidebar-category-header ${activeCategory === 'host' ? 'category-active' : ''}`}
+                      onClick={() => setActiveCategory(prev => prev === 'host' ? null : 'host')}
+                      title="Click to expand/collapse Host Controls"
+                    >
+                      <div className="category-header-main">
+                        <span className="sidebar-item-icon">👑</span>
+                        <span className="category-header-title">Host Controls</span>
+                      </div>
+                      <span className="category-chevron">{activeCategory === 'host' ? '▾' : '▸'}</span>
+                    </button>
+
+                    {activeCategory === 'host' && (
+                      <div className="sidebar-sub-items">
+                        {/* Host Controls */}
+                        <button
+                          type="button"
+                          className={`sidebar-nav-item ${activeTab === 'host' ? 'active' : ''}`}
+                          onClick={() => setActiveTab(prev => prev === 'host' ? null : 'host')}
+                          title="Open Instructor Host Controls & Roster"
+                        >
+                          <span className="sidebar-item-icon">⚙️</span>
+                          <div className="sidebar-item-label">
+                            <span className="sidebar-item-title">Host Controls</span>
+                            <span className="sidebar-item-sub">Mute All & Student Cams</span>
+                          </div>
+                        </button>
+
+                        {/* Lock Room */}
+                        <button
+                          type="button"
+                          className={`sidebar-nav-item ${isRoomLocked ? 'locked' : ''}`}
+                          onClick={handleToggleRoomLock}
+                          title={isRoomLocked ? "Unlock Classroom" : "Lock Classroom"}
+                        >
+                          <span className="sidebar-item-icon">{isRoomLocked ? '🔒' : '🔓'}</span>
+                          <div className="sidebar-item-label">
+                            <span className="sidebar-item-title">{isRoomLocked ? 'Room Locked' : 'Lock Room'}</span>
+                            <span className="sidebar-item-sub">{isRoomLocked ? 'No new joins' : 'Open for joins'}</span>
+                          </div>
+                        </button>
+
+                        {/* Copy Invite Link */}
+                        <button
+                          type="button"
+                          className="sidebar-nav-item"
+                          onClick={copyInviteLink}
+                          title="Copy Direct Shareable Invite Link"
+                        >
+                          <span className="sidebar-item-icon">🔗</span>
+                          <div className="sidebar-item-label">
+                            <span className="sidebar-item-title">Copy Invite Link</span>
+                            <span className="sidebar-item-sub">Direct join URL</span>
+                          </div>
+                        </button>
+
+                        {/* WhatsApp & Email Full Invite */}
+                        <button
+                          type="button"
+                          className="sidebar-nav-item"
+                          onClick={copyClassInvitation}
+                          title="Copy complete formatted class invitation"
+                        >
+                          <span className="sidebar-item-icon">📋</span>
+                          <div className="sidebar-item-label">
+                            <span className="sidebar-item-title">Class Invite</span>
+                            <span className="sidebar-item-sub">WhatsApp & Email text</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. General Settings */}
+                <div className="sidebar-category-group">
+                  <button
+                    type="button"
+                    className="sidebar-category-header"
+                    onClick={() => onOpenSettings && onOpenSettings('general')}
+                    title="Classroom & Device Settings"
+                  >
+                    <div className="category-header-main">
+                      <span className="sidebar-item-icon">⚙️</span>
+                      <span className="category-header-title">Settings</span>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>↗</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -2446,16 +2585,8 @@ function ActiveRoomPage({
                   </div>
                 </div>
 
-                {/* Window Controls: Minimize, Maximize, Cancel/Close */}
+                {/* Window Controls: Maximize, Close */}
                 <div className="panel-window-controls">
-                  <button
-                    type="button"
-                    className={`panel-win-btn ${panelSizeMode === 'minimized' ? 'active' : ''}`}
-                    onClick={() => setPanelSizeMode(prev => prev === 'minimized' ? 'normal' : 'minimized')}
-                    title={panelSizeMode === 'minimized' ? "Restore Panel" : "Minimize Panel (🗕)"}
-                  >
-                    🗕
-                  </button>
                   <button
                     type="button"
                     className={`panel-win-btn ${panelSizeMode === 'maximized' ? 'active' : ''}`}
@@ -2477,27 +2608,9 @@ function ActiveRoomPage({
                   </button>
                 </div>
               </div>
-
-              {panelSizeMode === 'minimized' && (
-                <div
-                  style={{
-                    padding: '4px 6px',
-                    fontSize: '0.72rem',
-                    color: '#38bdf8',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: 'rgba(2, 132, 199, 0.15)',
-                    borderRadius: 6
-                  }}
-                  onClick={() => setPanelSizeMode('normal')}
-                >
-                  🗕 Minimized • Click to expand
-                </div>
-              )}
             </div>
 
-            {panelSizeMode !== 'minimized' && (
-              <div className="panel-content">
+            <div className="panel-content">
               {/* Tab 1: Live Chat & Pinned Doubts */}
               {activeTab === 'chat' && (
                 <div className="chat-container">
@@ -3031,7 +3144,6 @@ function ActiveRoomPage({
                 </div>
               )}
             </div>
-            )}
           </aside>
         )}
       </div>

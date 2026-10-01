@@ -138,84 +138,11 @@ function WhiteboardCanvas({ roomId, user }) {
     showToast('↪️ Redo');
   }, [restoreSnapshot]);
 
-  // Stamp Keyboard Notes onto the Whiteboard Canvas & Broadcast to all students
-  const handleStampNotesToCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = getCtx();
-    if (!canvas || !ctx || !typedNotes.trim()) return;
+  const textareaRef = useRef(null);
 
-    pushUndoState();
-
-    const startX = 40;
-    const startY = 70;
-    const lines = typedNotes.split('\n');
-    const lineHeight = typingFontSize * 1.5;
-
-    ctx.save();
-    ctx.font = `${typingFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    
-    // Calculate bounding box
-    let maxW = 0;
-    lines.forEach(l => {
-      const metrics = ctx.measureText(l);
-      if (metrics.width > maxW) maxW = metrics.width;
-    });
-
-    const pad = 20;
-    const cardW = Math.min(Math.max(maxW + pad * 2, 320), canvas.width - startX - 20);
-    const cardH = lines.length * lineHeight + pad * 2;
-
-    // Draw lecture card backdrop
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-    ctx.strokeStyle = 'rgba(99, 102, 241, 0.7)';
-    ctx.lineWidth = 2;
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(startX, startY, cardW, cardH, 12);
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      ctx.fillRect(startX, startY, cardW, cardH);
-      ctx.strokeRect(startX, startY, cardW, cardH);
-    }
-
-    // Top decorative bar
-    ctx.fillStyle = '#6366f1';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(startX, startY, cardW, 6, [12, 12, 0, 0]);
-      ctx.fill();
-    } else {
-      ctx.fillRect(startX, startY, cardW, 6);
-    }
-
-    // Draw each line with syntax styling
-    lines.forEach((line, i) => {
-      const lineY = startY + pad + 10 + i * lineHeight;
-      if (line.startsWith('#')) {
-        ctx.fillStyle = '#38bdf8'; // Cyan title
-        ctx.font = `bold ${typingFontSize + 4}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillText(line.replace(/^#+\s*/, ''), startX + pad, lineY);
-      } else if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
-        ctx.fillStyle = '#c7d2fe'; // Soft indigo bullet
-        ctx.font = `${typingFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillText(line, startX + pad, lineY);
-      } else if (line.toLowerCase().startsWith('formula:') || line.toLowerCase().startsWith('def:') || line.toLowerCase().startsWith('note:')) {
-        ctx.fillStyle = '#4ade80'; // Emerald formula
-        ctx.font = `600 ${typingFontSize}px "Courier New", Courier, monospace`;
-        ctx.fillText(line, startX + pad, lineY);
-      } else {
-        ctx.fillStyle = typingTextColor;
-        ctx.font = `${typingFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillText(line, startX + pad, lineY);
-      }
-    });
-
-    ctx.restore();
-
-    // Broadcast canvas update to all students
-    const snapshotUrl = canvas.toDataURL();
-    socket.emit('whiteboard-restore-snapshot', { roomId, snapshot: snapshotUrl });
+  // Save typed notes to storage & broadcast live sync to all students (without drawing on canvas)
+  const handleSaveNotes = useCallback(() => {
+    if (!typedNotes || !typedNotes.trim()) return;
 
     try {
       if (roomId) {
@@ -224,8 +151,92 @@ function WhiteboardCanvas({ roomId, user }) {
     } catch (e) {
       console.warn('Failed to save typed notes:', e);
     }
-    showToast('📌 Notes pinned to Whiteboard & saved!');
-  }, [typedNotes, typingFontSize, typingTextColor, roomId, pushUndoState]);
+
+    socket.emit('whiteboard-typing-sync', {
+      roomId,
+      notes: typedNotes,
+      fontSize: typingFontSize,
+      textColor: typingTextColor
+    });
+
+    showToast('💾 Notes saved & synced in Typing Pad!');
+  }, [typedNotes, typingFontSize, typingTextColor, roomId]);
+
+  // Highlight selected word or insert ==word== highlight tags in Typing Pad
+  const handleHighlightSelection = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = typedNotes.substring(start, end);
+    let newText = '';
+    if (selected && selected.trim()) {
+      newText = typedNotes.substring(0, start) + `==${selected}==` + typedNotes.substring(end);
+    } else {
+      newText = typedNotes.substring(0, start) + `==important concept==` + typedNotes.substring(end);
+    }
+    handleTeacherNoteChange(newText);
+    showToast('🖍️ Word highlighted in Typing Pad!');
+  }, [typedNotes, handleTeacherNoteChange]);
+
+  // Pin current line in Typing Pad with 📌
+  const handlePinPoint = useCallback(() => {
+    const el = textareaRef.current;
+    const start = el ? el.selectionStart : 0;
+    const before = typedNotes.substring(0, start);
+    const lastNewline = before.lastIndexOf('\n');
+    const insertPos = lastNewline === -1 ? 0 : lastNewline + 1;
+    const newText = typedNotes.substring(0, insertPos) + '📌 ' + typedNotes.substring(insertPos);
+    handleTeacherNoteChange(newText);
+    showToast('📌 Line pinned in Typing Pad!');
+  }, [typedNotes, handleTeacherNoteChange]);
+
+  // Formatted renderer for notes with highlight badges and pinned points
+  const renderFormattedNotes = (text) => {
+    if (!text) return null;
+    return text.split('\n').map((line, idx) => {
+      const parts = line.split(/(==[^=]+==)/g);
+      const isPinned = line.startsWith('📌');
+      const isHeading = line.startsWith('#');
+
+      return (
+        <div
+          key={idx}
+          style={{
+            minHeight: '1.4em',
+            marginBottom: isHeading ? '0.4rem' : '0.15rem',
+            padding: isPinned ? '3px 8px' : '0',
+            background: isPinned ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+            borderLeft: isPinned ? '3px solid #38bdf8' : 'none',
+            borderRadius: isPinned ? '4px' : '0',
+            fontWeight: isHeading ? 700 : 'normal',
+            color: isHeading ? '#38bdf8' : 'inherit'
+          }}
+        >
+          {parts.map((part, pIdx) => {
+            if (part.startsWith('==') && part.endsWith('==') && part.length > 4) {
+              const word = part.slice(2, -2);
+              return (
+                <mark
+                  key={pIdx}
+                  style={{
+                    background: '#fef08a',
+                    color: '#854d0e',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 700
+                  }}
+                >
+                  {word}
+                </mark>
+              );
+            }
+            return <span key={pIdx}>{part}</span>;
+          })}
+        </div>
+      );
+    });
+  };
 
   // Resize handler using ResizeObserver
   useEffect(() => {
@@ -733,10 +744,10 @@ function WhiteboardCanvas({ roomId, user }) {
                     <span style={{ fontSize: '1.1rem' }}>⌨️</span>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
-                        Lecture Typing Pad
+                        Typing Pad
                       </h4>
                       <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                        Type notes with keyboard & send to canvas
+                        Type, highlight words & live sync notes
                       </span>
                     </div>
                   </div>
@@ -752,8 +763,53 @@ function WhiteboardCanvas({ roomId, user }) {
                   </button>
                 </div>
 
+                {/* Word Highlight & Pin Formatting Bar */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleHighlightSelection}
+                    title="Highlight selected word or insert ==word=="
+                    style={{
+                      background: 'rgba(234, 179, 8, 0.2)',
+                      border: '1px solid rgba(234, 179, 8, 0.5)',
+                      color: '#fef08a',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    <span>🖍️ Highlight Word</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePinPoint}
+                    title="Pin this line with 📌"
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.2)',
+                      border: '1px solid rgba(56, 189, 248, 0.5)',
+                      color: '#7dd3fc',
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    <span>📌 Pin Line</span>
+                  </button>
+                </div>
+
                 {/* Multi-line Keyboard Typing Input */}
                 <textarea
+                  ref={textareaRef}
                   className="wb-typing-textarea"
                   value={typedNotes}
                   onChange={e => handleTeacherNoteChange(e.target.value)}
@@ -766,15 +822,12 @@ function WhiteboardCanvas({ roomId, user }) {
                   <button
                     type="button"
                     className="btn-stamp-board"
-                    onClick={handleStampNotesToCanvas}
+                    onClick={handleSaveNotes}
                     disabled={!typedNotes.trim()}
-                    title="Pin typed note onto the whiteboard canvas for all students and save"
+                    title="Save notes and live sync in Typing Pad"
                   >
-                    <span>📌 Pin and Save</span>
+                    <span>💾 Save & Sync Notes</span>
                   </button>
-                  <span className="wb-typing-hint">
-                    💡 Tip: Click "Pin and Save" to stamp your notes onto the canvas.
-                  </span>
                 </div>
               </>
             ) : (
@@ -785,7 +838,7 @@ function WhiteboardCanvas({ roomId, user }) {
                     <span style={{ fontSize: '1.1rem' }}>👨‍🏫</span>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
-                        Teacher's Lecture Notes
+                        Typing Pad (Teacher's Notes)
                       </h4>
                       <span style={{ fontSize: '0.72rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
@@ -805,13 +858,14 @@ function WhiteboardCanvas({ roomId, user }) {
                 </div>
 
                 <div className="wb-student-notes-card">
-                  <pre className="wb-student-notes-body" style={{
+                  <div className="wb-student-notes-body" style={{
                     fontSize: `${typingFontSize}px`,
                     color: typingTextColor,
-                    margin: 0
+                    margin: 0,
+                    lineHeight: 1.6
                   }}>
-                    {typedNotes || "Teacher has not typed notes yet. As the teacher types, notes will appear here live."}
-                  </pre>
+                    {renderFormattedNotes(typedNotes || "Teacher has not typed notes yet. As the teacher types, notes will appear here live.")}
+                  </div>
                 </div>
 
                 <div className="wb-student-notes-footer">
