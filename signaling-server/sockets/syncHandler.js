@@ -6,6 +6,8 @@ const roomUsers = new Map(); // roomId -> Map(socketId -> userObj)
 const roomVideoStates = new Map(); // roomId -> { mediaType, ytVideoId, videoSrc, currentTime, isPlaying, videoTitle }
 const roomWorkspaceViews = new Map(); // roomId -> view
 const roomActiveQuizzes = new Map(); // roomId -> active quiz object
+const roomMediaStates = new Map(); // roomId -> Map(socketId -> { videoOn, micOn })
+const roomInstructors = new Map(); // roomId -> instructorName
 
 const sanitizeRoomId = (raw) => {
   if (!raw) return '';
@@ -109,9 +111,30 @@ const syncHandler = (io, socket) => {
     // Notify peers for WebRTC
     socket.to(roomId).emit('user-connected', userId || socket.id);
 
+    if (userRole === 'instructor') {
+      const instName = userName || 'Instructor';
+      roomInstructors.set(roomId, instName);
+      if (altRoom) roomInstructors.set(altRoom, instName);
+    }
+
     // Broadcast updated participant roster
     io.to(roomId).emit('room-participants-update', Array.from(currentRoomMap.values()));
     socket.emit('room-lock-status', { isLocked: lockedRooms.has(roomId) });
+
+    // Send existing media states of participants
+    if (roomMediaStates.has(roomId)) {
+      const currentStates = {};
+      for (const [sId, st] of roomMediaStates.get(roomId).entries()) {
+        currentStates[sId] = st;
+      }
+      socket.emit('room-media-states-sync', currentStates);
+    }
+
+    // Send instructor name if available
+    const curInst = roomInstructors.get(roomId) || (altRoom ? roomInstructors.get(altRoom) : null);
+    if (curInst) {
+      socket.emit('room-instructor-info', { instructorName: curInst });
+    }
 
     // Broadcast user joined toast notification to all peers in the room
     socket.to(roomId).emit('peer-joined-notification', {
@@ -151,12 +174,43 @@ const syncHandler = (io, socket) => {
   });
 
   // ── Participant Media State Update Broadcast ──
-  socket.on('media-state-change', ({ roomId, videoOn, micOn }) => {
+  socket.on('media-state-change', ({ roomId: rawRoomId, videoOn, micOn }) => {
+    const roomId = sanitizeRoomId(rawRoomId || socket.roomId);
+    if (roomId) {
+      if (!roomMediaStates.has(roomId)) {
+        roomMediaStates.set(roomId, new Map());
+      }
+      roomMediaStates.get(roomId).set(socket.id, {
+        videoOn: videoOn !== false,
+        micOn: micOn !== false
+      });
+    }
     socket.to(roomId).emit('peer-media-state-change', {
       socketId: socket.id,
-      videoOn,
-      micOn
+      videoOn: videoOn !== false,
+      micOn: micOn !== false
     });
+  });
+
+  // ── Query Room Info (Host & Title) ──
+  socket.on('get-room-info', async ({ roomId: rawRoomId }, callback) => {
+    const roomId = sanitizeRoomId(rawRoomId);
+    let instName = roomInstructors.get(roomId);
+    if (!instName && roomId) {
+      try {
+        const alt = roomId.replace(/-/g, '');
+        const r = await Room.findOne({ $or: [{ roomId }, { roomId: alt }] }).lean();
+        if (r && r.instructorName) {
+          instName = r.instructorName;
+          roomInstructors.set(roomId, instName);
+        }
+      } catch (e) {}
+    }
+    if (typeof callback === 'function') {
+      callback({ instructorName: instName || 'Instructor' });
+    } else {
+      socket.emit('room-info-response', { roomId, instructorName: instName || 'Instructor' });
+    }
   });
 
   // ── Host Controls: Lock / Unlock Room ──
@@ -533,8 +587,13 @@ const syncHandler = (io, socket) => {
         if (remainingCount === 0) {
           roomUsers.delete(socket.roomId);
           lockedRooms.delete(socket.roomId);
+          roomMediaStates.delete(socket.roomId);
         } else {
           io.to(socket.roomId).emit('room-participants-update', Array.from(currentRoomMap.values()));
+        }
+
+        if (roomMediaStates.has(socket.roomId)) {
+          roomMediaStates.get(socket.roomId).delete(socket.id);
         }
 
         // Update MongoDB document

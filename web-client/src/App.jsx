@@ -195,6 +195,11 @@ function App() {
       setRoomHostName(optionalHost);
     } else if (user?.role === 'instructor') {
       setRoomHostName(user?.name || 'Instructor');
+    } else {
+      const stored = localStorage.getItem('synclearn_host_' + targetRoom) || localStorage.getItem('synclearn_host_' + targetRoom.replace(/-/g, ''));
+      if (stored) {
+        setRoomHostName(stored);
+      }
     }
     setIsStudentLinkJoin(user?.role !== 'instructor');
     setIsPreJoinOpen(true);

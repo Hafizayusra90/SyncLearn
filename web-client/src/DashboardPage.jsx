@@ -302,7 +302,6 @@ function InstructorDashboard({
 
         <div className="zoom-card-heading-wrap">
           <h2>Create & Schedule Live Classroom</h2>
-          <p>Customize your lecture topic, generate a secure 9-digit meeting ID, and broadcast the invite link to students before class.</p>
         </div>
 
         {/* Meeting Topic Input */}
@@ -488,7 +487,6 @@ function StudentDashboard({
         </div>
         <div className="zoom-card-heading-wrap">
           <h2>Enter Online Classroom</h2>
-          <p>Enter the 9-digit Meeting ID (e.g. <code>849-291-034</code>) or paste the complete class invite link sent by your instructor.</p>
         </div>
         <form onSubmit={handleJoinSubmit} className="join-form-custom">
           <label className="room-code-label">🆔 Meeting ID or Direct Join Link:</label>
@@ -784,14 +782,37 @@ function DashboardPage({
 
   const handleCreateRoom = () => {
     const targetRoom = extractRoomCode(createdRoomId) || generateZoomMeetingId();
-    if (onJoinRoom) onJoinRoom(targetRoom);
+    if (user?.name) {
+      try {
+        localStorage.setItem('synclearn_host_' + targetRoom, user.name);
+        localStorage.setItem('synclearn_host_' + targetRoom.replace(/-/g, ''), user.name);
+        const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
+        fetch(`${apiBase}/api/v1/rooms/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId: targetRoom, instructorName: user.name, title: meetingTopic })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    if (onJoinRoom) onJoinRoom(targetRoom, user?.name);
   };
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
     const cleanRoom = extractRoomCode(inputRoomId);
     if (cleanRoom && onJoinRoom) {
-      onJoinRoom(cleanRoom);
+      let detectedHost = '';
+      if (inputRoomId.includes('host=')) {
+        try {
+          const q = inputRoomId.includes('?') ? inputRoomId.split('?')[1] : inputRoomId;
+          const p = new URLSearchParams(q);
+          if (p.get('host')) detectedHost = decodeURIComponent(p.get('host'));
+        } catch (e) {}
+      }
+      if (!detectedHost) {
+        detectedHost = localStorage.getItem('synclearn_host_' + cleanRoom) || localStorage.getItem('synclearn_host_' + cleanRoom.replace(/-/g, '')) || '';
+      }
+      onJoinRoom(cleanRoom, detectedHost);
     }
   };
 

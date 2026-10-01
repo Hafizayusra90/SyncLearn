@@ -21,12 +21,53 @@ function PreJoinModal({
   });
   const [nameError, setNameError] = useState('');
 
+  const [resolvedHostName, setResolvedHostName] = useState(() => {
+    if (isInstructor) return user?.name || '';
+    if (hostName && hostName !== 'Instructor') return hostName;
+    const cleanId = (roomId || '').trim();
+    return localStorage.getItem('synclearn_host_' + cleanId) || localStorage.getItem('synclearn_host_' + cleanId.replace(/-/g, '')) || '';
+  });
+
   // Keep realName synced if user logs in or switches
   useEffect(() => {
     if (user?.name) {
       setRealName(user.name);
     }
   }, [user?.name]);
+
+  // Resolve instructor name dynamically for student join preview
+  useEffect(() => {
+    if (!isOpen) return;
+    if (isInstructor) {
+      setResolvedHostName(user?.name || realName || 'Instructor');
+      return;
+    }
+    if (hostName && hostName !== 'Instructor') {
+      setResolvedHostName(hostName);
+      return;
+    }
+
+    const cleanId = (roomId || '').trim();
+    if (!cleanId) return;
+
+    const stored = localStorage.getItem('synclearn_host_' + cleanId) || localStorage.getItem('synclearn_host_' + cleanId.replace(/-/g, ''));
+    if (stored) {
+      setResolvedHostName(stored);
+    }
+
+    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
+    fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(cleanId)}/info`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.instructorName && data.instructorName !== 'Instructor') {
+          setResolvedHostName(data.instructorName);
+          try {
+            localStorage.setItem('synclearn_host_' + cleanId, data.instructorName);
+          } catch(e) {}
+        }
+      })
+      .catch(() => {});
+  }, [isOpen, roomId, hostName, isInstructor, user?.name, realName]);
 
   const [availableMics, setAvailableMics] = useState([]);
   const [availableCams, setAvailableCams] = useState([]);
@@ -169,7 +210,7 @@ function PreJoinModal({
 
   const meetingHostName = isInstructor
     ? (user?.name || realName || 'Instructor')
-    : (hostName || 'Instructor');
+    : (resolvedHostName || hostName || 'Instructor');
 
   const showNameField = !isInstructor || isStudentJoinLink || !user?.name;
 
