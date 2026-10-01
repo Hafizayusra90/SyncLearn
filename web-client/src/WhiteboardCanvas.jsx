@@ -887,17 +887,12 @@ function WhiteboardCanvas({ roomId, user }) {
                         </button>
                         <button
                           type="button"
-                          className={`wb-panel-btn ${tool === TOOLS.RECT ? 'active' : ''}`}
-                          onClick={() => setTool(TOOLS.RECT)}
+                          className="wb-panel-btn wb-btn-danger"
+                          onClick={clearBoard}
+                          style={{ gridColumn: 'span 3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
+                          title="Clear entire whiteboard canvas"
                         >
-                          ⬜ Rect
-                        </button>
-                        <button
-                          type="button"
-                          className={`wb-panel-btn ${tool === TOOLS.LASER ? 'laser-active' : ''}`}
-                          onClick={() => setTool(t => t === TOOLS.LASER ? TOOLS.PEN : TOOLS.LASER)}
-                        >
-                          🔴 Laser
+                          🗑️ Clear Board
                         </button>
                       </div>
                     </div>

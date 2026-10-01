@@ -432,7 +432,7 @@ function ActiveRoomPage({
   const [workspaceView, setWorkspaceView] = useState('all');
   const [isRoomActionsOpen, setIsRoomActionsOpen] = useState(false);
   const [isStudioDockOpen, setIsStudioDockOpen] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   // Host & Room state
   const [participants, setParticipants] = useState([]);
