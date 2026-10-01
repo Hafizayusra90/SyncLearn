@@ -2016,8 +2016,9 @@ function ActiveRoomPage({
                 handleRecordSessionHistoryAndLeave();
               }
             }}
+            title="End or Leave Live Classroom Meeting"
           >
-            ⬅ Leave Room
+            🛑 End Meeting
           </button>
         </div>
       </header>
@@ -2477,7 +2478,7 @@ function ActiveRoomPage({
                 </div>
               </div>
 
-              {panelSizeMode === 'minimized' ? (
+              {panelSizeMode === 'minimized' && (
                 <div
                   style={{
                     padding: '4px 6px',
@@ -2492,39 +2493,7 @@ function ActiveRoomPage({
                 >
                   🗕 Minimized • Click to expand
                 </div>
-              ) : (
-                /* Sleek Tool Switcher Pills */
-                <div className="panel-tools-bar">
-                <button
-                  type="button"
-                  className={`panel-tool-pill ${activeTab === 'chat' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('chat')}
-                >
-                  💬 Chat {pinnedDoubts.length > 0 ? `(${pinnedDoubts.length})` : ''}
-                </button>
-                <button
-                  type="button"
-                  className={`panel-tool-pill ${activeTab === 'ai' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('ai')}
-                >
-                  🤖 AI Tutor
-                </button>
-                <button
-                  type="button"
-                  className={`panel-tool-pill ${activeTab === 'notes' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('notes')}
-                >
-                  🎙️ Notes {transcription.length > 0 ? `(${transcription.length})` : ''}
-                </button>
-                <button
-                  type="button"
-                  className={`panel-tool-pill ${activeTab === 'host' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('host')}
-                >
-                  {isInstructor ? `⚙️ Host (${participants.length || 1})` : `👥 Roster (${participants.length || 1})`}
-                </button>
-              </div>
-            )}
+              )}
             </div>
 
             {panelSizeMode !== 'minimized' && (

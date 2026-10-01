@@ -222,42 +222,6 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
             </form>
           </div>
         </div>
-
-        {/* WebRTC Hardware Check Card */}
-        <div className="profile-card">
-          <h2>🎙️ Media Device Configurations (WebRTC)</h2>
-          <div className="devices-grid">
-            {/* Camera Selector */}
-            <div className="profile-field">
-              <label>Select Camera Device</label>
-              <select className="profile-input">
-                <option>Integrated HD Web Camera (Default)</option>
-              </select>
-              <div className="device-preview-box">
-                📹 Camera Preview Active
-              </div>
-            </div>
-
-            {/* Microphone Selector */}
-            <div className="profile-field">
-              <label>Select Microphone Device</label>
-              <select className="profile-input">
-                <option>Internal Audio Microphone (Default)</option>
-                <option>External Headset Microphone</option>
-              </select>
-              <div style={{ marginTop: '0.8rem' }}>
-                <span style={{ fontSize: '0.85rem', color: '#cbd5e1' }}>Microphone Test Level:</span>
-                <div className="mic-meter-bar">
-                  <div className="mic-level-active"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <button type="button" className="save-profile-btn" onClick={handleSave}>
-          Save Changes
-        </button>
       </div>
     </div>
   );

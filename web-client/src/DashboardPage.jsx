@@ -313,7 +313,7 @@ function InstructorDashboard({
             className="dash-input topic-input"
             value={meetingTopic}
             onChange={(e) => setMeetingTopic(e.target.value)}
-            placeholder="e.g. CS101: Web Engineering & Interactive Whiteboard"
+            placeholder="Enter instructor's lecture topic"
           />
         </div>
 
@@ -513,13 +513,6 @@ function StudentDashboard({
         </form>
       </div>
 
-      <div className="role-section-title">🛠️ What You Can Do in a Session</div>
-      <div className="instructor-features-grid">
-        {['🎥 Live Video Call','👀 Live Whiteboard View','💬 Live Chat','📍 Pin Doubts','📝 AI Notes','🎬 Watch Video','⚡ Real-time Sync','📊 View Analytics'].map(f => (
-          <div className="feature-pill" key={f}>{f}</div>
-        ))}
-      </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
         <div className="role-section-title" style={{ margin: 0 }}>🕐 My Completed Sessions ({attendedCount})</div>
         {attendedCount > 0 && (
@@ -583,7 +576,7 @@ function DashboardPage({
 }) {
   const [inputRoomId, setInputRoomId] = useState('');
   const [createdRoomId, setCreatedRoomId] = useState(() => generateZoomMeetingId());
-  const [meetingTopic, setMeetingTopic] = useState('SyncLearn Live Interactive Classroom');
+  const [meetingTopic, setMeetingTopic] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const toastTimeoutRef = useRef(null);
@@ -853,21 +846,6 @@ function DashboardPage({
 
           <button type="button" className="back-btn" onClick={handleProfile} style={{ backgroundColor: '#6366f1', color: '#ffffff' }}>
             👤 Profile
-          </button>
-
-          <button
-            type="button"
-            className="back-btn"
-            onClick={() => onOpenSettings && onOpenSettings('general')}
-            style={{ backgroundColor: '#334155', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            title="Appearance, Audio/Video & Account Settings"
-          >
-            {user?.avatar ? (
-              <img src={user.avatar} alt="Avatar" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />
-            ) : (
-              '⚙️'
-            )}
-            <span>Settings</span>
           </button>
 
           <button
