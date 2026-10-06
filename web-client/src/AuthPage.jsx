@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, KeyRound, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
-import { isValidRealEmail, isValidRealName, validatePasswordPolicy } from './utils/validation';
+import { isValidRealEmail, isValidRealName, validatePasswordPolicy, validateRealEmail } from './utils/validation';
 import './AuthPage.css';
 
 function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
@@ -62,17 +62,24 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
         showNotice('❌ Please enter your real full name (at least 2 letters, no numbers).', 'error');
         return;
       }
-      if (!formData.email.trim() || !isValidRealEmail(formData.email)) {
-        showNotice('❌ Please enter a valid, active email address that exists (e.g. name@gmail.com, student@university.edu).', 'error');
+
+      const emailVal = validateRealEmail(formData.email);
+      if (!emailVal.isValid) {
+        showNotice(`❌ ${emailVal.message || "Email address doesn't exist. Please enter a real, active email address."}`, 'error');
         return;
       }
-      if (!formData.recoveryEmail.trim() || !isValidRealEmail(formData.recoveryEmail)) {
-        showNotice('❌ Please enter a valid, active recovery email address.', 'error');
-        return;
-      }
-      if (formData.recoveryEmail.trim().toLowerCase() === formData.email.trim().toLowerCase()) {
-        showNotice('❌ Recovery email cannot be identical to your primary email address.', 'error');
-        return;
+
+      // Recovery email is optional
+      if (formData.recoveryEmail && formData.recoveryEmail.trim()) {
+        const recoveryVal = validateRealEmail(formData.recoveryEmail);
+        if (!recoveryVal.isValid) {
+          showNotice(`❌ Recovery email: ${recoveryVal.message || "Email address doesn't exist."}`, 'error');
+          return;
+        }
+        if (formData.recoveryEmail.trim().toLowerCase() === formData.email.trim().toLowerCase()) {
+          showNotice('❌ Recovery email cannot be identical to your primary email address.', 'error');
+          return;
+        }
       }
 
       const policy = validatePasswordPolicy(formData.password);
@@ -83,8 +90,9 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     }
 
     if (authMode === 'login') {
-      if (!formData.email.trim() || !isValidRealEmail(formData.email)) {
-        showNotice('❌ Please enter a valid, active email address.', 'error');
+      const emailVal = validateRealEmail(formData.email);
+      if (!emailVal.isValid) {
+        showNotice(`❌ ${emailVal.message || "Email address doesn't exist. Please enter a real, active email address."}`, 'error');
         return;
       }
       if (!formData.password) {
@@ -99,7 +107,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
       : { 
           name: formData.name.trim(), 
           email: formData.email.trim(), 
-          recoveryEmail: formData.recoveryEmail.trim(), 
+          recoveryEmail: formData.recoveryEmail ? formData.recoveryEmail.trim() : '', 
           password: formData.password, 
           role 
         };
@@ -300,11 +308,10 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
 
               {authMode === 'signup' && (
                 <div className="form-group">
-                  <label>Recovery Email Address (For Account & Password Recovery)</label>
+                  <label>Recovery Email Address (Optional - For Password Recovery)</label>
                   <input
                     type="email"
-                    placeholder="Enter recovery email"
-                    required
+                    placeholder="Enter recovery email (Optional)"
                     value={formData.recoveryEmail}
                     onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
                     className="auth-input"

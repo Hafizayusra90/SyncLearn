@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { isValidRealEmail, isValidRealName, validatePasswordPolicy } = require('../utils/validation');
+const { isValidRealEmail, isValidRealName, validatePasswordPolicy, checkEmailDomainExists } = require('../utils/validation');
 
 // ── In-Memory fallback store (used when MongoDB is offline) ──────────────────
 const memoryUsers = [];
@@ -21,16 +21,22 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid full name (minimum 2 letters, no numbers).' });
     }
 
-    if (!email || !isValidRealEmail(email)) {
-      return res.status(400).json({ message: 'Please provide a valid, active email address (e.g. name@gmail.com, student@university.edu).' });
+    if (!email) {
+      return res.status(400).json({ message: 'Please provide an email address.' });
+    }
+
+    const emailCheck = await checkEmailDomainExists(email);
+    if (!emailCheck.isValid) {
+      return res.status(400).json({ message: emailCheck.message || "Email address doesn't exist. Please enter a real, active email address." });
     }
 
     const cleanEmail = email.toLowerCase().trim();
     const cleanRecovery = recoveryEmail ? recoveryEmail.toLowerCase().trim() : '';
 
     if (cleanRecovery) {
-      if (!isValidRealEmail(cleanRecovery)) {
-        return res.status(400).json({ message: 'Please provide a valid recovery email address.' });
+      const recoveryCheck = await checkEmailDomainExists(cleanRecovery);
+      if (!recoveryCheck.isValid) {
+        return res.status(400).json({ message: `Recovery email: ${recoveryCheck.message || "Email address doesn't exist."}` });
       }
       if (cleanRecovery === cleanEmail) {
         return res.status(400).json({ message: 'Recovery email cannot be identical to your primary email address.' });
@@ -124,8 +130,9 @@ const loginUser = async (req, res) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (!isValidRealEmail(cleanEmail)) {
-      return res.status(400).json({ message: 'Please enter a valid, active email address.' });
+    const emailCheck = await checkEmailDomainExists(cleanEmail);
+    if (!emailCheck.isValid) {
+      return res.status(400).json({ message: emailCheck.message || "Email address doesn't exist. Please enter a real, active email address." });
     }
 
     // ── Try MongoDB first ──
