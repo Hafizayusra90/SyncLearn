@@ -19,14 +19,18 @@ const DUMMY_USERNAMES = new Set([
   'abc', 'abcd', 'sample', 'none', 'nobody', 'noone', 'null', 'temp',
   'anonymous', 'anon', 'random', 'foo', 'bar', 'foobar', 'admin', 'user',
   'guest', 'testing', 'faker', 'tester', 'fakeemail', 'dummyemail', 'testemail',
-  'myemail', 'someone', 'asdfgh', 'asdfghjk', 'qwertyuiop', 'zxcvbnm', 'xyz'
+  'myemail', 'someone', 'asdfgh', 'asdfghjk', 'qwertyuiop', 'zxcvbnm', 'xyz',
+  'demo', 'trash', 'junk', 'spam', 'student', 'instructor', 'teacher', 'check',
+  'trial', 'hello', 'world', 'helloworld', 'aaa', 'bbb', 'ccc', 'ddd', 'eee', 'fff'
 ]);
 
-const DUMMY_PREFIX_REGEX = /^(test|dummy|fake|asdf|sample|qwerty|temp|demo|faker|testing|trash)[0-9_.-]*$/i;
+const DUMMY_PREFIX_REGEX = /^(test|dummy|fake|asdf|sample|qwerty|temp|demo|faker|testing|trash|junk|user|student|instructor|teacher|admin|guest|random|anon|anonymous|someone|nobody|abc|xyz|example|trial|check)[0-9_.-]*$/i;
+const DUMMY_CONTAINS_REGEX = /(fake|dummy|test|temp|sample|junk|trash|testing|faker|tester|nobody|noone|fakeemail|dummyemail|testemail|throwaway|disposable|notreal|fakemail)/i;
 const INVALID_TLDS = new Set(['test', 'example', 'invalid', 'localhost', 'fake', 'dummy', 'sample', 'local']);
 
 /**
- * Validates that an email is structurally valid, active-format, and does not belong to fake/dummy patterns.
+ * Validates that an email is structurally real, follows provider-specific RFC rules,
+ * and does not belong to dummy or non-existent patterns.
  * Returns { isValid: boolean, message: string }
  */
 export const validateRealEmail = (email) => {
@@ -35,39 +39,97 @@ export const validateRealEmail = (email) => {
   }
   const clean = email.trim().toLowerCase();
 
-  // RFC 5322 standard email structure
-  const regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-  if (!regex.test(clean)) {
-    return { isValid: false, message: "Invalid email format. Please enter a real email." };
+  // Basic structure check
+  if (!clean.includes('@')) {
+    return { isValid: false, message: "Email address doesn't exist. Missing '@' symbol." };
   }
 
-  const [localPart, domain] = clean.split('@');
-  if (!localPart || localPart.length < 2) {
-    return { isValid: false, message: "Email username is too short." };
+  // Strictly block consecutive dots anywhere in the email (e.g. hafiza..1@gmail.com)
+  if (clean.includes('..')) {
+    return { isValid: false, message: "Email address doesn't exist. Consecutive dots (..) are not allowed." };
   }
+
+  const parts = clean.split('@');
+  if (parts.length !== 2) {
+    return { isValid: false, message: "Email address doesn't exist. Invalid email structure." };
+  }
+
+  const [localPart, domain] = parts;
+
+  // Username start / end checks
+  if (localPart.startsWith('.') || localPart.endsWith('.')) {
+    return { isValid: false, message: "Email address doesn't exist. Username cannot start or end with a dot." };
+  }
+  if (localPart.startsWith('-') || localPart.endsWith('-') || localPart.startsWith('_') || localPart.endsWith('_')) {
+    return { isValid: false, message: "Email address doesn't exist. Username cannot start or end with a symbol." };
+  }
+  if (/__|\-\-|\._|_\.|\.-|-\./.test(localPart)) {
+    return { isValid: false, message: "Email address doesn't exist. Consecutive or mixed symbols are not allowed." };
+  }
+
+  // Domain structure checks
   if (!domain || !domain.includes('.')) {
-    return { isValid: false, message: "Email domain doesn't exist." };
+    return { isValid: false, message: "Email address doesn't exist. Domain is invalid." };
+  }
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.startsWith('-') || domain.endsWith('-')) {
+    return { isValid: false, message: "Email address doesn't exist. Domain cannot start or end with a symbol." };
   }
 
-  // Reject known disposable or fake domains
+  // Disposable or fake domains blacklist
   if (DISPOSABLE_OR_FAKE_DOMAINS.has(domain)) {
-    return { isValid: false, message: "Email address doesn't exist. Dummy or temporary domains are not allowed." };
+    return { isValid: false, message: "Email address doesn't exist. Disposable or fake email domains are not allowed." };
   }
 
   const domainParts = domain.split('.');
   const tld = domainParts[domainParts.length - 1];
   if (!tld || tld.length < 2 || !/^[a-zA-Z]+$/.test(tld) || INVALID_TLDS.has(tld)) {
-    return { isValid: false, message: "Email domain doesn't exist or has an invalid extension." };
+    return { isValid: false, message: "Email address doesn't exist. Invalid domain extension." };
   }
 
-  // Reject dummy prefixes / usernames
-  if (DUMMY_USERNAMES.has(localPart) || DUMMY_PREFIX_REGEX.test(localPart)) {
+  // Provider-specific strict RFC validations
+  if (domain === 'gmail.com' || domain === 'googlemail.com') {
+    // Gmail usernames must be 6 to 30 characters
+    if (localPart.length < 6 || localPart.length > 30) {
+      return { isValid: false, message: "Email address doesn't exist. Gmail usernames must be between 6 and 30 characters." };
+    }
+    // Gmail only allows letters, numbers, and periods (NO underscores, hyphens, plus)
+    if (/[^a-zA-Z0-9.]/.test(localPart)) {
+      return { isValid: false, message: "Email address doesn't exist. Gmail only allows letters, numbers, and periods." };
+    }
+  }
+
+  if (domain === 'yahoo.com' || domain === 'ymail.com') {
+    if (localPart.length < 4 || localPart.length > 32) {
+      return { isValid: false, message: "Email address doesn't exist. Yahoo usernames must be between 4 and 32 characters." };
+    }
+    if (!/^[a-zA-Z]/.test(localPart)) {
+      return { isValid: false, message: "Email address doesn't exist. Yahoo usernames must start with a letter." };
+    }
+    if (/[^a-zA-Z0-9._]/.test(localPart)) {
+      return { isValid: false, message: "Email address doesn't exist. Yahoo only allows letters, numbers, underscores, and periods." };
+    }
+  }
+
+  if (domain === 'outlook.com' || domain === 'hotmail.com' || domain === 'live.com') {
+    if (localPart.length < 3 || localPart.length > 64) {
+      return { isValid: false, message: "Email address doesn't exist. Microsoft usernames must be between 3 and 64 characters." };
+    }
+  }
+
+  // General minimum username length
+  if (localPart.length < 3) {
+    return { isValid: false, message: "Email address doesn't exist. Username is too short." };
+  }
+
+  // Reject dummy prefixes and blacklisted usernames
+  const normalizedUser = localPart.replace(/[._-]/g, '');
+  if (DUMMY_CONTAINS_REGEX.test(localPart) || DUMMY_USERNAMES.has(localPart) || DUMMY_USERNAMES.has(normalizedUser) || DUMMY_PREFIX_REGEX.test(localPart)) {
     return { isValid: false, message: "Email address doesn't exist. Dummy emails are not allowed, please enter your real active email address." };
   }
 
   // Reject repeating single characters (e.g. aaaaa@, 11111@)
-  if (/^(.)\1{3,}$/.test(localPart)) {
-    return { isValid: false, message: "Email address doesn't exist. Please enter a real email address." };
+  if (/(.)\1{2,}/.test(localPart)) {
+    return { isValid: false, message: "Email address doesn't exist. Repeating characters are not allowed." };
   }
 
   // Reject username that is solely numeric digits
@@ -75,15 +137,20 @@ export const validateRealEmail = (email) => {
     return { isValid: false, message: "Email address doesn't exist. Username cannot be only numbers." };
   }
 
+  // Reject usernames starting with 3+ digits
+  if (/^\d{3,}/.test(localPart)) {
+    return { isValid: false, message: "Email address doesn't exist. Username cannot start with numbers." };
+  }
+
   // Reject keyboard mash patterns
-  if (/^(asdfgh|qwertyui|zxcvbn)/i.test(localPart)) {
+  if (/^(asdf|qwer|zxcv|hjkl|poiuy|lkjh|mnbv)/i.test(localPart)) {
     return { isValid: false, message: "Email address doesn't exist. Please enter a real email address." };
   }
 
   // Reject dummy domain root (e.g. asdf123.com, testtest.com)
   const domainName = domainParts[0];
   if (DUMMY_USERNAMES.has(domainName) || DUMMY_PREFIX_REGEX.test(domainName)) {
-    return { isValid: false, message: "Email address doesn't exist. Please enter a real email address." };
+    return { isValid: false, message: "Email address doesn't exist. Dummy domain names are not allowed." };
   }
 
   return { isValid: true, message: "" };
