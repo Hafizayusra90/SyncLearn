@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isValidRealEmail, isValidRealName } from './utils/validation';
+import { API_BASE } from './socket';
 import './SettingsModal.css';
 
 function SettingsModal({
@@ -191,7 +192,7 @@ function SettingsModal({
 
     try {
       if (user?.email) {
-        await fetch('http://localhost:5000/api/v1/auth/profile', {
+        await fetch(`${API_BASE}/api/v1/auth/profile`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

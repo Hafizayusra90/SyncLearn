@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, KeyRound, Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { isValidRealEmail, isValidRealName, validatePasswordPolicy, validateRealEmail } from './utils/validation';
+import { API_BASE } from './socket';
 import './AuthPage.css';
 
 function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
@@ -33,7 +34,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     const defaultEmail = `${provider.toLowerCase()}-${Date.now().toString().slice(-4)}@example.com`;
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/social', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/social`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: defaultName, email: defaultEmail, role })
@@ -113,7 +114,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
         };
 
     try {
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -157,7 +158,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/forgot-password', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -190,7 +191,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/forgot-email', {
+      const response = await fetch(`${API_BASE}/api/v1/auth/forgot-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recoveryEmail: formData.recoveryEmail.trim() })

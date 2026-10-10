@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import { API_BASE } from './socket';
 import './DashboardPage.css';
 import logoImg from './assets/logo.png';
 
@@ -680,7 +681,7 @@ function DashboardPage({
 
   useEffect(() => {
     const checkDb = () => {
-      fetch('http://localhost:5000/api/v1/db-status')
+      fetch(`${API_BASE}/api/v1/db-status`)
         .then(res => res.json())
         .then(data => {
           if (data && data.connected) {
@@ -892,8 +893,7 @@ function DashboardPage({
       try {
         localStorage.setItem('synclearn_host_' + targetRoom, user.name);
         localStorage.setItem('synclearn_host_' + targetRoom.replace(/-/g, ''), user.name);
-        const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
-        fetch(`${apiBase}/api/v1/rooms/register`, {
+        fetch(`${API_BASE}/api/v1/rooms/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ roomId: targetRoom, instructorName: user.name, title: meetingTopic })

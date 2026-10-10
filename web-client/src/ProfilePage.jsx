@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { isValidRealEmail, isValidRealName } from './utils/validation';
+import { API_BASE } from './socket';
 import './ProfilePage.css';
 
 function ProfilePage({ user, onBackToDashboard, onNavigate }) {
@@ -49,7 +50,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
 
     setSaveStatus('Saving...');
     try {
-      const res = await fetch('http://localhost:5000/api/v1/auth/profile', {
+      const res = await fetch(`${API_BASE}/api/v1/auth/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_BASE } from './socket';
 import syncLearnLogo from './assets/logo.png';
 import './PreJoinModal.css';
 
@@ -55,8 +56,7 @@ function PreJoinModal({
       setResolvedHostName(stored);
     }
 
-    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
-    fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(cleanId)}/info`)
+    fetch(`${API_BASE}/api/v1/rooms/${encodeURIComponent(cleanId)}/info`)
       .then(res => res.json())
       .then(data => {
         if (data && data.success && data.instructorName && data.instructorName !== 'Instructor') {
