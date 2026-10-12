@@ -2447,7 +2447,7 @@ function ActiveRoomPage({
                   {activeCategory === 'tools' && (
                     <div className="sidebar-sub-items">
                       {/* Share Screen */}
-                      <button
+                      {/* <button
                         type="button"
                         className={`sidebar-nav-item ${isScreenSharing ? 'active' : ''}`}
                         onClick={toggleScreenShare}
@@ -2458,7 +2458,7 @@ function ActiveRoomPage({
                           <span className="sidebar-item-title">{isScreenSharing ? 'Stop Sharing' : 'Share Screen'}</span>
                           <span className="sidebar-item-sub">Present your screen</span>
                         </div>
-                      </button>
+                      </button> */}
 
                       {/* AI Co-Teacher Tutor */}
                       <button
@@ -2535,7 +2535,7 @@ function ActiveRoomPage({
                       </button>
 
                       {/* Live Captions (CC) Toggle */}
-                      <button
+                      {/* <button
                         type="button"
                         className={`sidebar-nav-item ${isCaptionsEnabled ? 'active' : ''}`}
                         onClick={() => {
@@ -2559,7 +2559,7 @@ function ActiveRoomPage({
                           <span className="sidebar-item-title">Live Captions</span>
                           <span className="sidebar-item-sub">{isCaptionsEnabled ? 'CC Active' : 'CC Off'}</span>
                         </div>
-                      </button>
+                      </button> */}
 
                       {/* Raise Hand (For Students) */}
                       {!isInstructor && (

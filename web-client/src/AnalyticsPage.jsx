@@ -14,8 +14,14 @@ function AnalyticsPage({ onNavigate }) {
       {/* Nav */}
       <nav className="analytics-nav">
         <div className="logo-container">
-          <img src="/logo.png" alt="SyncLearn" className="logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-          <span className="logo-text">SyncLearn Analytics</span>
+         <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
+                   <img
+                     src={logoImg}
+                     alt="SyncLearn Logo"
+                     style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
+                   />
+                   <span className="logo-text">SyncLearn</span>
+                 </button> 
         </div>
         <button 
           className="back-btn" 

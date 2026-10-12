@@ -8,12 +8,14 @@ function LandingPage({ onNavigate, onEnterWorkspace, theme, onToggleTheme }) {
       {/* ── Sticky Navbar ── */}
       <nav className="landing-nav">
         <div className="logo-container">
+          <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
           <img
             src={logoImg}
             alt="SyncLearn Logo"
             style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
           />
           <span className="logo-text">SyncLearn</span>
+        </button> 
         </div>
 
         <div className="nav-links">

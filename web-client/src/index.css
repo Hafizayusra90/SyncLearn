@@ -108,10 +108,10 @@ a { color: var(--primary); text-decoration: none; }
 a:hover { color: #38bdf8; }
 
 /* ===== SCROLLBAR ===== */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-surface); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); } */
 
 /* ===== LOGO ===== */
 .logo-container {
@@ -119,6 +119,19 @@ a:hover { color: #38bdf8; }
   align-items: center;
   gap: 0.55rem;
   text-decoration: none;
+}
+.logo-container .auth-back-btn {
+   background: transparent;
+    border: none;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+.logo-container .auth-back-btn:hover{
+    background: transparent;
+    border: none;
+    padding: 0;
 }
 .logo-icon { font-size: 1.4rem; }
 .logo-text {
@@ -249,10 +262,9 @@ a:hover { color: #38bdf8; }
 [data-theme="light"] .analytics-container,
 [data-theme="light"] .demo-container,
 [data-theme="light"] .summary-container {
-  background-color: #d6f6f8 !important;
+  background-color: #fff !important;
   background-image: 
-    linear-gradient(180deg, rgba(235, 253, 254, 0.45) 0%, rgba(188, 246, 248, 0.3) 45%, rgba(110, 228, 232, 0.45) 100%),
-    url('/tech-theme-bg.jpg') !important;
+ linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.5) 45%, rgb(200 236 237 / 50%) 100%), url(/tech-theme-bg.jpg) !important;
   background-size: cover !important;
   background-position: center top !important;
   background-repeat: no-repeat !important;

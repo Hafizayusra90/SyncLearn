@@ -339,7 +339,7 @@ function InstructorDashboard({
 
       <div className="role-stats-row">
         {[
-          { icon: '📚', value: sessionCount > 0 ? 1 : 0, label: 'Active Live Room' },
+          { icon: '📚', value: sessionCount > 0 ? 0 : 0, label: 'Active Live Room' },
           { icon: '👥', value: totalStudentsTaught, label: 'Students Connected' },
           { icon: '🎙️', value: sessionCount, label: 'Classes Completed' },
           { icon: '📊', value: sessionCount > 0 ? '98%' : '0%', label: 'Attendance Rate' },
@@ -348,7 +348,7 @@ function InstructorDashboard({
             <span className="stat-icon">{s.icon}</span>
             <div>
               <div className="stat-value">{s.value}</div>
-              <div className="stat-label">{s.label}</div>
+              <div className="">{s.label}</div>
             </div>
           </div>
         ))}
@@ -357,8 +357,8 @@ function InstructorDashboard({
       <div className="role-section-title">🚀 Launch a Live Session</div>
       <div className="action-card instructor-card zoom-class-card">
         <div className="zoom-card-top-bar">
-          <span className="card-badge badge-purple">👨‍🏫 Instructor Classroom Hub</span>
-          <span className="zoom-live-badge">
+          <span className="card-badge badge-green">👨‍🏫 Instructor Classroom Hub</span>
+          <span className="zoom-live-badge live-green">
             <span className="pulse-dot">●</span> Ready to Host
           </span>
         </div>
@@ -380,23 +380,66 @@ function InstructorDashboard({
         </div>
 
         {/* Meeting ID Input & Generation */}
-        <div className="room-create-box">
-          <label className="room-code-label">🆔 Class Meeting ID / Room Code:</label>
-          <div className="room-code-input-row">
-            <div className="zoom-id-display">
-              <span className="zoom-id-hash">#</span>
-              <input
-                type="text"
-                value={createdRoomId}
-                onChange={(e) => setCreatedRoomId(e.target.value)}
-                className="dash-input zoom-code-input"
-                placeholder="e.g. 849-291-034"
-              />
-            </div>
-            <button type="button" className="code-action-btn" onClick={handleCopyCreatedInvite} title="Copy direct classroom shareable link">🔗 Copy Link</button>
-            <button type="button" className="code-action-btn" onClick={handleCopyCreatedCode} title="Copy Meeting ID only">📋 Copy ID</button>
-          </div>
-        </div>
+       <div className="room-create-box">
+  <label className="room-code-label">
+    🆔 Class Meeting ID / Room Code:
+  </label>
+
+  <div className="room-code-input-row">
+    <div className="zoom-id-display">
+      <span className="zoom-id-hash">#</span>
+
+      <input
+        type="text"
+        value={createdRoomId}
+        onChange={(e) => setCreatedRoomId(e.target.value)}
+        className="dash-input zoom-code-input"
+        placeholder="e.g. 849-291-034"
+      />
+    </div>
+
+    <button
+      type="button"
+      className="code-action-btn"
+      onClick={handleCopyCreatedInvite}
+      title="Copy classroom invitation link"
+    >
+      🔗 Copy Link
+    </button>
+
+    <button
+      type="button"
+      className="code-action-btn"
+      onClick={handleCopyCreatedCode}
+      title="Copy Meeting ID"
+    >
+      📋 Copy ID
+    </button>
+  </div>
+
+  {/* Live Topic and Meeting ID Preview */}
+  <div className="meeting-details-preview">
+    <h3>📚 Class Information</h3>
+
+    <p>
+      <strong>Lecture Topic:</strong>{" "}
+      {meetingTopic.trim() || "Enter a class topic above"}
+    </p>
+
+    <p>
+      <strong>Meeting ID:</strong>{" "}
+      {createdRoomId || "Not generated"}
+    </p>
+
+    <button
+      type="button"
+      className="dash-btn dash-secondary-btn"
+      onClick={handleCopyZoomInvitation}
+    >
+      📋 Copy Topic & Meeting Invitation
+    </button>
+  </div>
+</div>
 
         {/* Action Buttons Grid (Just 2 Options: Launch Classroom & WhatsApp) */}
         <div className="zoom-action-buttons-row">
@@ -440,8 +483,34 @@ function InstructorDashboard({
           <div className="history-list">
             {completedSessions.map(s => (
               <div className="history-item" key={s.code}>
-                <div className="history-info">
-                  <h4>{s.title}</h4>
+                <div className="history-info"> 
+   {(() => {
+  const roomCode = s.code || "";
+
+  const storedTopic =
+    localStorage.getItem("synclearn_topic_" + roomCode)?.trim() ||
+    localStorage
+      .getItem(
+        "synclearn_topic_" + roomCode.replace(/-/g, "")
+      )
+      ?.trim() ||
+    "";
+
+  const isGenericTitle = (value) =>
+    !value?.trim() ||
+    /^Live Session(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
+    /^Untitled Class$/i.test(value.trim());
+
+  const topic = !isGenericTitle(storedTopic)
+    ? storedTopic
+    : !isGenericTitle(s.title)
+      ? s.title.trim()
+      : !isGenericTitle(s.topic)
+        ? s.topic.trim()
+        : "Untitled Class";
+
+  return <h4>📚 Topic: {topic}</h4>;
+})()}
                   <p>Room: <code>{s.code}</code> • {s.date} ({s.time || ''}) • <span style={{fontSize:'0.75rem',borderRadius:'99px',padding:'2px 8px',background:'rgba(34,197,94,0.12)',color:'#4ade80'}}>👥 {s.students} participants</span></p>
                   {s.recordedLecture && (
                     <div style={{ fontSize: '0.74rem', color: '#38bdf8', marginTop: 4 }}>
@@ -534,7 +603,7 @@ function StudentDashboard({
             <span className="stat-icon">{s.icon}</span>
             <div>
               <div className="stat-value">{s.value}</div>
-              <div className="stat-label">{s.label}</div>
+              <div className="">{s.label}</div>
             </div>
           </div>
         ))}
@@ -605,7 +674,32 @@ function StudentDashboard({
             {completedSessions.map(s => (
               <div className="history-item" key={s.code}>
                 <div className="history-info">
-                  <h4>{s.title}</h4>
+                 {(() => {
+                    const roomCode = s.code || "";
+                    const storedTopic =
+                      localStorage.getItem("synclearn_topic_" + roomCode)?.trim() ||
+                      localStorage
+                        .getItem(
+                          "synclearn_topic_" + roomCode.replace(/-/g, "")
+                        )
+                        ?.trim() ||
+                      "";
+
+                    const isGenericTitle = (value) =>
+                      !value?.trim() ||
+                      /^Live Session(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
+                      /^Untitled Class$/i.test(value.trim());
+
+                    const topic = !isGenericTitle(storedTopic)
+                      ? storedTopic
+                      : !isGenericTitle(s.title)
+                        ? s.title.trim()
+                        : !isGenericTitle(s.topic)
+                          ? s.topic.trim()
+                          : "Untitled Class";
+
+                    return <h4>📚 Topic: {topic}</h4>;
+                  })()}
                   <p>Room: <code>{s.code}</code> • {s.date} ({s.time || ''}) • <span style={{color:'#94a3b8'}}>Instructor: {s.instructor || 'Teacher'}</span></p>
                 </div>
                 {(() => {
@@ -741,7 +835,48 @@ function DashboardPage({
     setCompletedSessions([]);
     showToast('Class history cleared. All session counts reset to 0.', 'info');
   };
+const saveSessionToHistory = (roomId, topic, sessionDetails = {}) => {
+  const cleanRoom = extractRoomCode(roomId);
+  const cleanTopic =
+    topic?.trim() ||
+    localStorage.getItem("synclearn_topic_" + cleanRoom) ||
+    localStorage.getItem(
+      "synclearn_topic_" + cleanRoom.replace(/-/g, "")
+    ) ||
+    "Untitled Class";
 
+  if (!cleanRoom) return;
+
+  const key = getUserSessionStorageKey();
+  if (!key) return;
+
+  const existing = getStoredSessions();
+
+  const sessionRecord = {
+    ...sessionDetails,
+    code: cleanRoom,
+    title: cleanTopic,
+    topic: cleanTopic,
+    instructor: user?.name || "Instructor",
+    date: new Date().toLocaleDateString(),
+    time: new Date().toLocaleTimeString(),
+    students: sessionDetails.students ?? 0
+  };
+
+  // Update the existing record for this room instead of duplicating it.
+  const updated = existing.some(
+    (session) => session.code === cleanRoom
+  )
+    ? existing.map((session) =>
+        session.code === cleanRoom
+          ? { ...session, ...sessionRecord }
+          : session
+      )
+    : [...existing, sessionRecord];
+
+  localStorage.setItem(key, JSON.stringify(updated));
+  setCompletedSessions(updated);
+};
   const showToast = (message, type = 'success') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ show: true, message, type });
@@ -773,14 +908,32 @@ function DashboardPage({
       .then(() => showToast(`🔗 Shareable Mobile & Wi-Fi invite link copied: ${inviteUrl}`, 'success'))
       .catch(() => showToast('Failed to copy link', 'error'));
   };
+ 
+const handleCopyZoomInvitation = async () => {
+  if (!createdRoomId) {
+    showToast("Please enter a meeting ID.", "error");
+    return;
+  }
 
-  const handleCopyZoomInvitation = () => {
-    if (!createdRoomId) return;
-    const text = buildZoomInvitationText(meetingTopic, createdRoomId, user?.name);
-    navigator.clipboard.writeText(text)
-      .then(() => showToast('📋 Class invitation copied! Ready to paste in WhatsApp/Email.'))
-      .catch(() => showToast('Failed to copy invitation', 'error'));
-  };
+  if (!meetingTopic.trim()) {
+    showToast("Please enter the class topic first.", "error");
+    return;
+  }
+
+  const invitation = buildZoomInvitationText(
+    meetingTopic.trim(),
+    createdRoomId,
+    user?.name
+  );
+
+  try {
+    await navigator.clipboard.writeText(invitation);
+    showToast("Class topic and meeting invitation copied!", "success");
+  } catch (error) {
+    console.error("Copy invitation failed:", error);
+    showToast("Unable to copy invitation. Check browser permissions.", "error");
+  }
+};
 
   const handleShareWhatsApp = () => {
     const text = buildZoomInvitationText(meetingTopic, createdRoomId, user?.name);
@@ -886,22 +1039,86 @@ function DashboardPage({
     return val.replace(/[^a-zA-Z0-9_-]/g, '').trim() || val.trim();
   };
 
-  const handleCreateRoom = () => {
-    const targetRoom = extractRoomCode(createdRoomId) || generateZoomMeetingId();
-    if (user?.name) {
-      try {
-        localStorage.setItem('synclearn_host_' + targetRoom, user.name);
-        localStorage.setItem('synclearn_host_' + targetRoom.replace(/-/g, ''), user.name);
-        const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
-        fetch(`${apiBase}/api/v1/rooms/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId: targetRoom, instructorName: user.name, title: meetingTopic })
-        }).catch(() => {});
-      } catch (e) {}
+const handleCreateRoom = async () => {
+  const topic = meetingTopic.trim();
+  const targetRoom =
+    extractRoomCode(createdRoomId) || generateZoomMeetingId();
+
+  if (!topic) {
+    showToast("Please enter the class topic first.", "error");
+    return;
+  }
+
+  try {
+    // Save topic and instructor information for this room.
+    localStorage.setItem(
+      "synclearn_topic_" + targetRoom,
+      topic
+    );
+
+    localStorage.setItem(
+      "synclearn_topic_" + targetRoom.replace(/-/g, ""),
+      topic
+    );
+
+    localStorage.setItem(
+      "synclearn_host_" + targetRoom,
+      user?.name || "Instructor"
+    );
+
+    setMeetingTopic(topic);
+    setCreatedRoomId(targetRoom);
+
+    // Register the room with the backend.
+    const apiBase =
+      window.location.hostname === "localhost"
+        ? "http://localhost:5000"
+        : "";
+
+    try {
+      const response = await fetch(
+        `${apiBase}/api/v1/rooms/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            roomId: targetRoom,
+            instructorName: user?.name || "Instructor",
+            title: topic
+          })
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(
+          "Room registration returned:",
+          response.status
+        );
+      }
+    } catch (error) {
+      console.warn("Room registration failed:", error);
     }
-    if (onJoinRoom) onJoinRoom(targetRoom, user?.name);
-  };
+
+    // SAVE THE SESSION TO DASHBOARD HISTORY.
+    saveSessionToHistory(targetRoom, topic, {
+      students: 0
+    });
+
+    // Start the classroom.
+    if (onJoinRoom) {
+      onJoinRoom(targetRoom, user?.name);
+    }
+
+  } catch (error) {
+    console.error("Class creation error:", error);
+    showToast(
+      "Unable to create the classroom.",
+      "error"
+    );
+  }
+};
 
   const handleJoinSubmit = (e) => {
     e.preventDefault();
@@ -951,29 +1168,27 @@ function DashboardPage({
       )}
 
       {/* Top Header Navigation */}
-      <nav className="dashboard-nav">
+      <nav className="landing-nav">
         <div className="logo-container">
-          <img
-            src={logoImg}
-            alt="SyncLearn Logo"
-            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
-          />
-          <span className="logo-text">SyncLearn</span>
+        <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
+                  <img
+                    src={logoImg}
+                    alt="SyncLearn Logo"
+                    style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
+                  />
+                  <span className="logo-text">SyncLearn</span>
+                </button> 
           <span className={`nav-role-chip ${isInstructor ? 'role-instructor' : 'role-student'}`}>
             {isInstructor ? '👨‍🏫 Instructor' : '🎓 Student'}
           </span>
         </div>
 
         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-          {isInstructor && (
+          {/* {isInstructor && (
             <button type="button" className="back-btn" onClick={handleAnalytics} style={{ backgroundColor: '#334155', color: '#ffffff' }}>
               📊 Analytics
             </button>
-          )}
-
-          <button type="button" className="back-btn" onClick={handleProfile} style={{ backgroundColor: '#6366f1', color: '#ffffff' }}>
-            👤 Profile
-          </button>
+          )}  */}
 
           <button
             type="button"

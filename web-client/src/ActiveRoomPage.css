@@ -1,9 +1,9 @@
 /* ===== ACTIVE ROOM PAGE (Radiant Crystal Aqua Cyber Theme - Matching Image 2) ===== */
 .room-container {
-  background-color: #d6f6f8;
+  /* background-color: #d6f6f8;
   background-image: 
     linear-gradient(180deg, rgba(235, 253, 254, 0.45) 0%, rgba(188, 246, 248, 0.3) 45%, rgba(110, 228, 232, 0.45) 100%),
-    url('/tech-theme-bg.jpg');
+    url('/tech-theme-bg.jpg'); */
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
@@ -219,6 +219,7 @@
   padding: 0.75rem;
   height: calc(100vh - 116px);
   overflow: hidden;
+  padding-right: 0;;
   transition: grid-template-columns 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -377,13 +378,13 @@
   padding-right: 2px;
 }
 
-.sidebar-scroll-items::-webkit-scrollbar {
+/* .sidebar-scroll-items::-webkit-scrollbar {
   width: 4px;
 }
 .sidebar-scroll-items::-webkit-scrollbar-thumb {
   background: rgba(56, 189, 248, 0.35);
   border-radius: 4px;
-}
+} */
 
 .sidebar-section-heading {
   font-size: 0.65rem;
@@ -936,7 +937,7 @@
 }
 
 /* Custom Scrollbar for workspace */
-.workspace-area::-webkit-scrollbar {
+/* .workspace-area::-webkit-scrollbar {
   width: 7px;
 }
 .workspace-area::-webkit-scrollbar-track {
@@ -949,7 +950,7 @@
 }
 .workspace-area::-webkit-scrollbar-thumb:hover {
   background: #38bdf8;
-}
+} */
 
 /* ── Workspace View Tabs ── */
 .workspace-view-tabs {
@@ -1001,7 +1002,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.6rem;
-  height: 185px;
+  height: 385px;
   flex-shrink: 0;
 }
 

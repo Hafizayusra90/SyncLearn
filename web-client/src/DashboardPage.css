@@ -1,10 +1,10 @@
 /* ===== DASHBOARD PAGE (Radiant Crystal Aqua Cyber Theme - Matching Img 2) ===== */
 .dashboard-container {
   min-height: 100vh;
-  background-color: #d6f6f8;
+  /* background-color: #d6f6f8;
   background-image: 
     linear-gradient(180deg, rgba(235, 253, 254, 0.45) 0%, rgba(188, 246, 248, 0.3) 45%, rgba(110, 228, 232, 0.45) 100%),
-    url('/tech-theme-bg.jpg');
+    url('/tech-theme-bg.jpg'); */
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
@@ -98,7 +98,7 @@
 }
 .badge-purple { background: rgba(8, 145, 178, 0.12); color: #0891b2; border: 1px solid rgba(8, 145, 178, 0.4); }
 .badge-green  { background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.4); }
-
+[data-theme="dark"] .badge-green { color: #fff;}
 /* Buttons */
 .dash-btn {
   padding: 0.7rem 1.25rem;
@@ -363,12 +363,12 @@
   font-size: 1.35rem !important;
   font-weight: 800 !important;
   margin-bottom: 0.35rem !important;
-  color: #ffffff !important;
+  color: #ffffff;
 }
 
 .role-welcome-banner p {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -387,17 +387,14 @@
   letter-spacing: 0.05em;
 }
 
-.role-instructor {
-  background: rgba(2, 132, 199, 0.25);
-  color: #7dd3fc;
-  border: 1px solid rgba(56, 189, 248, 0.5);
+.role-instructor, .role-student {
+   background: rgba(16, 185, 129, 0.2);
+    color: #000;
+    border: 1px solid rgba(52, 211, 153, 0.5);
 }
-
-.role-student {
-  background: rgba(16, 185, 129, 0.2);
-  color: #6ee7b7;
-  border: 1px solid rgba(52, 211, 153, 0.5);
-}
+[data-theme="dark"] .role-instructor, [data-theme="dark"] .role-student {
+   color: #fff;
+} 
 
 /* Nav Role Chip */
 .nav-role-chip {
@@ -455,7 +452,17 @@
   line-height: 1;
   text-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
 }
-
+[data-theme="dark"] .stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+    text-shadow: none;
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: unset;
+    background-clip: unset;
+}
 .stat-label {
   font-size: 0.74rem;
   color: var(--text-dim);

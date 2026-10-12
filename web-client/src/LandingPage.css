@@ -176,7 +176,9 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-
+[data-theme="dark"] .stat-label { 
+  color: #e0edff; 
+}
 /* ===== BUTTONS ===== */
 .primary-btn {
   display: inline-flex;
@@ -252,10 +254,14 @@
 [data-theme="dark"] .landing-container {
   background-color: #021422;
   background-image: 
-    radial-gradient(ellipse at 50% 15%, rgba(0, 229, 255, 0.18) 0%, rgba(3, 24, 40, 0.88) 55%, #021422 100%),
-    url('/tech-theme-bg.jpg');
+   radial-gradient(ellipse at 50% 15%, rgb(59 64 64) 0%, rgb(3 24 40 / 70%) 55%, #021422b3 100%), url(/tech-theme-bg.jpg);
 }
-
+[data-theme="dark"] .landing-container .stat-value { 
+    background: linear-gradient(135deg, #ffffff, #ffffff); 
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
 [data-theme="dark"] .landing-nav {
   background: rgba(4, 24, 40, 0.9);
   border-bottom-color: rgba(0, 210, 255, 0.3);

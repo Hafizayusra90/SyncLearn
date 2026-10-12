@@ -102,8 +102,14 @@ function DemoPage({ onNavigate, theme, onToggleTheme }) {
       {/* Navbar */}
       <nav className="demo-nav">
         <div className="logo-container">
-          <img src="/logo.png" alt="SyncLearn" className="logo-img" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-          <span className="logo-text">SyncLearn</span>
+         <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
+                   <img
+                     src={logoImg}
+                     alt="SyncLearn Logo"
+                     style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
+                   />
+                   <span className="logo-text">SyncLearn</span>
+                 </button> 
         </div>
         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
           <button className="back-btn" onClick={() => onNavigate && onNavigate('home')}>
@@ -181,7 +187,7 @@ function DemoPage({ onNavigate, theme, onToggleTheme }) {
                   {/* SCENE 2: Collaborative Whiteboard */}
                   {activeChapter.seconds === 45 && (
                     <div className="sim-scene whiteboard-scene">
-                      <div className="sim-wb-toolbar">
+                      {/* <div className="sim-wb-toolbar">
                         <span className="sim-tool active">✏️ Pen</span>
                         <span className="sim-tool">📏 Line</span>
                         <span className="sim-tool">⬜ Rect</span>
@@ -189,35 +195,10 @@ function DemoPage({ onNavigate, theme, onToggleTheme }) {
                         <span className="sim-color-dot" style={{ background: '#38bdf8' }} />
                         <span className="sim-color-dot" style={{ background: '#4ade80' }} />
                         <span className="sim-tool danger">🗑️ Clear</span>
-                      </div>
+                      </div> */}
                       <div className="sim-wb-board">
-                        <svg className="sim-drawing-svg" viewBox="0 0 500 250">
-                          {/* Flowchart Diagram */}
-                          <rect x="30" y="30" width="120" height="50" rx="8" fill="rgba(99,102,241,0.2)" stroke="#6366f1" strokeWidth="2" />
-                          <text x="90" y="60" fill="#fff" fontSize="13" textAnchor="middle">Input Stream</text>
-
-                          <path d="M 150 55 L 210 55" stroke="#38bdf8" strokeWidth="2" markerEnd="url(#arrow)" />
-
-                          <rect x="210" y="30" width="130" height="50" rx="8" fill="rgba(56,189,248,0.2)" stroke="#38bdf8" strokeWidth="2" />
-                          <text x="275" y="60" fill="#fff" fontSize="13" textAnchor="middle">WebRTC Signaling</text>
-
-                          <path d="M 340 55 L 390 55" stroke="#4ade80" strokeWidth="2" />
-
-                          <circle cx="430" cy="55" r="28" fill="rgba(74,222,128,0.2)" stroke="#4ade80" strokeWidth="2" />
-                          <text x="430" y="60" fill="#fff" fontSize="12" textAnchor="middle">Sync</text>
-
-                          {/* Math Formula */}
-                          <text x="50" y="160" fill="#f59e0b" fontSize="22" fontFamily="monospace" fontWeight="bold">
-                            ∇ · E = ρ / ε₀  (Gauss's Law)
-                          </text>
-                          <text x="50" y="205" fill="#a78bfa" fontSize="16" fontFamily="monospace">
-                            Collaborative Sync: 3 peers drawing simultaneously
-                          </text>
-                        </svg>
-                        <div className="sim-user-cursor" style={{ top: '85px', left: '260px' }}>
-                          <span className="sim-cursor-dot" />
-                          <span className="sim-cursor-name">Yusra (Drawing...)</span>
-                        </div>
+                       
+                        
                       </div>
                     </div>
                   )}
