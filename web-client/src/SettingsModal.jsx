@@ -22,7 +22,6 @@ function SettingsModal({
   const [isSaving, setIsSaving] = useState(false);
 
   // Appearance & Theme States
-  const [activeThemeAccent, setActiveThemeAccent] = useState('classic');
   const [selectedEmojiTone, setSelectedEmojiTone] = useState(0);
 
   // Media Settings
@@ -51,8 +50,6 @@ function SettingsModal({
   const [selectLocationAfterMeeting, setSelectLocationAfterMeeting] = useState(false);
   const [showParticipantsNames, setShowParticipantsNames] = useState(true);
   const [includeTimestamp, setIncludeTimestamp] = useState(false);
-  const [recordVideoScreenSharing, setRecordVideoScreenSharing] = useState(true);
-  const [showSideBySide, setShowSideBySide] = useState(false);
   const [showAdvancedRecording, setShowAdvancedRecording] = useState(false);
   const [savedRecordingsList, setSavedRecordingsList] = useState([]);
   const [activePlaybackRec, setActivePlaybackRec] = useState(null);
@@ -98,14 +95,12 @@ function SettingsModal({
         storagePath,
         selectLocationAfterMeeting,
         showParticipantsNames,
-        includeTimestamp,
-        recordVideoScreenSharing,
-        showSideBySide
+        includeTimestamp
       }));
     } catch (e) {
       console.warn('Failed to save recording prefs:', e);
     }
-  }, [saveToPc, saveToApp, storagePath, selectLocationAfterMeeting, showParticipantsNames, includeTimestamp, recordVideoScreenSharing, showSideBySide]);
+  }, [saveToPc, saveToApp, storagePath, selectLocationAfterMeeting, showParticipantsNames, includeTimestamp]);
 
   // Load Saved Recordings for In-App Playback
   useEffect(() => {
@@ -191,7 +186,7 @@ function SettingsModal({
 
     try {
       if (user?.email) {
-        await fetch('http://localhost:5000/api/v1/auth/profile', {
+        await fetch('/api/v1/auth/profile', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -286,7 +281,6 @@ function SettingsModal({
     { id: 'audio', label: 'Audio', icon: '🎧' },
     { id: 'notifications', label: 'Notifications & sounds', icon: '🔔' },
     { id: 'recording', label: 'Recording', icon: '⏺' },
-    { id: 'share', label: 'Share screen', icon: '⬆' },
     { id: 'chat', label: 'Chat', icon: '💬' },
     { id: 'accessibility', label: 'Accessibility', icon: '🚶' },
     { id: 'shortcuts', label: 'Keyboard shortcuts', icon: '⌨' },
@@ -379,64 +373,8 @@ function SettingsModal({
                       <span className="zoom-mode-card-label">Dark</span>
                     </div>
 
-                    {/* System Setting */}
-                    <div
-                      className="zoom-color-mode-card"
-                      onClick={() => onSetTheme && onSetTheme('dark')}
-                    >
-                      <div className="zoom-mode-preview-box zoom-preview-system">
-                        <div className="zoom-preview-split-light">
-                          <div className="zoom-preview-fake-bar"></div>
-                        </div>
-                        <div className="zoom-preview-split-dark">
-                          <div className="zoom-preview-fake-bar" style={{ background: '#64748b' }}></div>
-                        </div>
-                      </div>
-                      <span className="zoom-mode-card-label">System setting</span>
                     </div>
                   </div>
-                </div>
-
-                {/* Theme Accent Swatches (Image 2) */}
-                <div className="zoom-setting-section-card">
-                  <div className="zoom-section-card-title">Theme</div>
-                  <p className="zoom-section-card-desc">Apply an accent color when using light or dark mode.</p>
-                  <div className="zoom-themes-row">
-                    {[
-                      { id: 'cyan', label: 'Cyber Tech', bg: 'linear-gradient(135deg, #00d2ff 0%, #0891b2 100%)' },
-                      { id: 'classic', label: 'Classic', bg: 'linear-gradient(135deg, #64748b 50%, #cbd5e1 50%)' },
-                      { id: 'bloom', label: 'Bloom', bg: '#1d4ed8' },
-                      { id: 'agave', label: 'Agave', bg: '#0f766e' },
-                      { id: 'rose', label: 'Rose', bg: '#9f1239' }
-                    ].map(swatch => (
-                      <div
-                        key={swatch.id}
-                        className={`zoom-theme-swatch-wrap ${activeThemeAccent === swatch.id ? 'active' : ''}`}
-                        onClick={() => setActiveThemeAccent(swatch.id)}
-                      >
-                        <div className="zoom-theme-swatch" style={{ background: swatch.bg }} />
-                        <span className="zoom-swatch-label">{swatch.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px' }}>
-                    <span style={{ fontSize: '0.88rem', color: '#64748b' }}>SyncLearn Chat sidebar</span>
-                    <select
-                      style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        background: 'transparent',
-                        color: 'inherit',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      <option value="light">Light contrast</option>
-                      <option value="dark">Dark contrast</option>
-                    </select>
-                  </div>
-                </div>
 
                 {/* Emoji Reactions Skin Tone (Image 2) */}
                 <div className="zoom-setting-section-card">
@@ -919,27 +857,6 @@ function SettingsModal({
                     </label>
                   </div>
 
-                  <div className="zoom-toggle-row">
-                    <span style={{ fontSize: '0.88rem' }}>Record video during screen sharing</span>
-                    <label className="zoom-switch">
-                      <input
-                        type="checkbox"
-                        checked={recordVideoScreenSharing}
-                        onChange={e => setRecordVideoScreenSharing(e.target.checked)}
-                      />
-                      <span className="zoom-switch-slider"></span>
-                    </label>
-                  </div>
-
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px', cursor: 'pointer', fontSize: '0.88rem', color: '#334155' }}>
-                    <input
-                      type="checkbox"
-                      checked={showSideBySide}
-                      onChange={e => setShowSideBySide(e.target.checked)}
-                    />
-                    <span>Show video and screen share side-by-side</span>
-                  </label>
-
                   <div style={{ marginTop: '18px' }}>
                     <button
                       type="button"
@@ -1151,29 +1068,7 @@ function SettingsModal({
               </div>
             )}
 
-            {/* ── 7. Share Screen Tab ── */}
-            {activeTab === 'share' && (
-              <div>
-                <h2 className="zoom-content-header">Share Screen</h2>
-                <div className="zoom-setting-section-card">
-                  <div className="zoom-section-card-title">Screen Capture Quality</div>
-                  <div className="zoom-toggle-row">
-                    <span>Optimize for full screen video clip</span>
-                    <label className="zoom-switch">
-                      <input type="checkbox" defaultChecked />
-                      <span className="zoom-switch-slider"></span>
-                    </label>
-                  </div>
-                  <div className="zoom-toggle-row">
-                    <span>Share system audio with screen</span>
-                    <label className="zoom-switch">
-                      <input type="checkbox" defaultChecked />
-                      <span className="zoom-switch-slider"></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             {/* ── 8. Chat Tab ── */}
             {activeTab === 'chat' && (
@@ -1218,10 +1113,6 @@ function SettingsModal({
                       <kbd className="zoom-kbd">Alt + R</kbd>
                     </div>
                     <div className="zoom-shortcut-row">
-                      <span>Share / Stop Screen</span>
-                      <kbd className="zoom-kbd">Alt + S</kbd>
-                    </div>
-                    <div className="zoom-shortcut-row">
                       <span>Show / Hide In-Class Chat</span>
                       <kbd className="zoom-kbd">Alt + H</kbd>
                     </div>
@@ -1251,7 +1142,7 @@ function SettingsModal({
             )}
 
             {/* Other Tabs Fallback */}
-            {!['general', 'account', 'video', 'audio', 'notifications', 'recording', 'accessibility', 'share', 'chat', 'shortcuts', 'statistics'].includes(activeTab) && (
+            {!['general', 'account', 'video', 'audio', 'notifications', 'recording', 'accessibility', 'chat', 'shortcuts', 'statistics'].includes(activeTab) && (
               <div>
                 <h2 className="zoom-content-header">{navItems.find(i => i.id === activeTab)?.label}</h2>
                 <div className="zoom-setting-section-card">

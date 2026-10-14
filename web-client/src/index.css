@@ -239,10 +239,10 @@ a:hover { color: #38bdf8; }
   color: #0e4252 !important;
 }
 
-[data-theme="light"] a {
+[data-theme="light"] a:not(.lecture-download-btn):not(.lecture-view-btn):not(.lecture-action-btn) {
   color: #0891b2 !important;
 }
-[data-theme="light"] a:hover {
+[data-theme="light"] a:not(.lecture-download-btn):not(.lecture-view-btn):not(.lecture-action-btn):hover {
   color: #0e7490 !important;
 }
 

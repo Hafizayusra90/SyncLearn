@@ -27,3 +27,7 @@ Thumbs.db
 
 # Vite Cache
 .vite/
+
+# Uploaded Files
+signaling-server/uploads/*
+!signaling-server/uploads/.gitkeep

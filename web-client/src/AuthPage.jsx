@@ -33,7 +33,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     const defaultEmail = `${provider.toLowerCase()}-${Date.now().toString().slice(-4)}@example.com`;
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/social', {
+      const response = await fetch('/api/v1/auth/social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: defaultName, email: defaultEmail, role })
@@ -66,13 +66,16 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
         showNotice('❌ Please enter a valid, active email address that exists (e.g. name@gmail.com, student@university.edu).', 'error');
         return;
       }
-      if (!formData.recoveryEmail.trim() || !isValidRealEmail(formData.recoveryEmail)) {
-        showNotice('❌ Please enter a valid, active recovery email address.', 'error');
-        return;
-      }
-      if (formData.recoveryEmail.trim().toLowerCase() === formData.email.trim().toLowerCase()) {
-        showNotice('❌ Recovery email cannot be identical to your primary email address.', 'error');
-        return;
+      if (formData.recoveryEmail && formData.recoveryEmail.trim()) {
+        const cleanRec = formData.recoveryEmail.trim();
+        if (!isValidRealEmail(cleanRec)) {
+          showNotice('❌ Please enter a valid, active recovery email address.', 'error');
+          return;
+        }
+        if (cleanRec.toLowerCase() === formData.email.trim().toLowerCase()) {
+          showNotice('❌ Recovery email cannot be identical to your primary email address.', 'error');
+          return;
+        }
       }
 
       const policy = validatePasswordPolicy(formData.password);
@@ -95,7 +98,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
 
     const endpoint = authMode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register';
     const payload = authMode === 'login' 
-      ? { email: formData.email.trim(), password: formData.password }
+      ? { email: formData.email.trim(), password: formData.password, role }
       : { 
           name: formData.name.trim(), 
           email: formData.email.trim(), 
@@ -105,7 +108,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
         };
 
     try {
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -149,7 +152,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/forgot-password', {
+      const response = await fetch('/api/v1/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,7 +185,7 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/auth/forgot-email', {
+      const response = await fetch('/api/v1/auth/forgot-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recoveryEmail: formData.recoveryEmail.trim() })
@@ -258,7 +261,6 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
                 👨‍🏫 Instructor
               </button>
             </div>
-
             {/* Auth Form */}
             <form onSubmit={handleSubmit} className="auth-form">
               {authMode === 'signup' && (
@@ -300,11 +302,10 @@ function AuthPage({ onLoginSuccess, onNavigate, theme, onToggleTheme }) {
 
               {authMode === 'signup' && (
                 <div className="form-group">
-                  <label>Recovery Email Address (For Account & Password Recovery)</label>
+                  <label>Recovery Email Address <span style={{ fontWeight: 400, opacity: 0.7 }}>(Optional)</span></label>
                   <input
                     type="email"
-                    placeholder="Enter recovery email"
-                    required
+                    placeholder="Enter recovery email (optional)"
                     value={formData.recoveryEmail}
                     onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
                     className="auth-input"

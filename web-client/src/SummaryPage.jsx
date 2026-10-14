@@ -1,7 +1,8 @@
 import React from 'react';
 import './SummaryPage.css';
+import logoImg from './assets/logo.png';
 
-function SummaryPage({ roomId, onBackToDashboard }) {
+function SummaryPage({ roomId, onBackToDashboard, onNavigate }) {
   return (
     <div className="summary-container">
       {/* Top Header */}

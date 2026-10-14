@@ -244,6 +244,7 @@ const VideoPlayer = ({
                 // 1: Playing, 2: Paused, 3: Buffering/Seeking
                 if (event.data === 1) {
                   socket.emit('video-state-change', { roomId: cleanRoom, type: 'play', timestamp: cur });
+                  socket.emit('workspace-view-sync', { roomId: cleanRoom, view: 'video' });
                 } else if (event.data === 2) {
                   socket.emit('video-state-change', { roomId: cleanRoom, type: 'pause', timestamp: cur });
                 } else if (event.data === 3) {
@@ -360,6 +361,20 @@ const VideoPlayer = ({
       id: doubtObj.id,
       timestamp: capturedTimestamp,
       text: `${doubtObj.senderName}: ${cleanText}`
+    });
+    // Post as Doubt Question in Live Chat for instructor to see & resolve
+    socket.emit('send-message', {
+      roomId: cleanRoom,
+      id: doubtObj.id,
+      message: `❓ [Pinned Doubt at ${doubtObj.videoTimeFormatted}]: "${cleanText}"`,
+      doubtQuestion: cleanText,
+      senderName: doubtObj.senderName,
+      senderRole: doubtObj.senderRole,
+      isDoubt: true,
+      doubtId: doubtObj.id,
+      videoTimestamp: capturedTimestamp,
+      videoTimeFormatted: doubtObj.videoTimeFormatted,
+      time: doubtObj.time
     });
 
     setIsPinModalOpen(false);

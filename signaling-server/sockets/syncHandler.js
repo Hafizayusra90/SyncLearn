@@ -8,6 +8,7 @@ const roomWorkspaceViews = new Map(); // roomId -> view
 const roomActiveQuizzes = new Map(); // roomId -> active quiz object
 const roomMediaStates = new Map(); // roomId -> Map(socketId -> { videoOn, micOn })
 const roomInstructors = new Map(); // roomId -> instructorName
+const roomTopics = new Map(); // roomId -> current lecture topic
 
 const sanitizeRoomId = (raw) => {
   if (!raw) return '';
@@ -23,11 +24,23 @@ const sanitizeRoomId = (raw) => {
   return str.replace(/^https?:\/\/[^/]+\/?/i, '').replace(/[^a-zA-Z0-9_-]/g, '').trim() || str.trim();
 };
 
+const getRoomVariants = (raw) => {
+  if (!raw) return [];
+  const clean = sanitizeRoomId(raw);
+  if (!clean) return [];
+  const noHyphen = clean.replace(/-/g, '');
+  const variants = new Set([clean, noHyphen]);
+  if (/^\d{9}$/.test(noHyphen)) {
+    variants.add(`${noHyphen.slice(0, 3)}-${noHyphen.slice(3, 6)}-${noHyphen.slice(6)}`);
+  }
+  return Array.from(variants);
+};
+
 const syncHandler = (io, socket) => {
   console.log('⚡ User Connected:', socket.id);
 
   // ── Room Join ──
-  socket.on('join-room', ({ roomId: rawRoomId, userId, userName, userRole }) => {
+  socket.on('join-room', ({ roomId: rawRoomId, userId, userName, userRole, roomTopic }) => {
     const roomId = sanitizeRoomId(rawRoomId);
     // Check if room is locked
     if (lockedRooms.has(roomId) && userRole !== 'instructor') {
@@ -35,11 +48,17 @@ const syncHandler = (io, socket) => {
       return;
     }
 
-    socket.join(roomId);
+    const variants = getRoomVariants(rawRoomId);
+    variants.forEach(v => socket.join(v));
     socket.roomId = roomId;
-    const altRoom = roomId.replace(/-/g, '');
-    if (altRoom && altRoom !== roomId) {
-      socket.join(altRoom);
+
+    if (roomTopic && typeof roomTopic === 'string' && roomTopic.trim()) {
+      const cleanT = roomTopic.trim();
+      variants.forEach(v => {
+        if (!roomTopics.has(v) || userRole === 'instructor') {
+          roomTopics.set(v, cleanT);
+        }
+      });
     }
 
     if (!roomUsers.has(roomId)) {
@@ -113,8 +132,7 @@ const syncHandler = (io, socket) => {
 
     if (userRole === 'instructor') {
       const instName = userName || 'Instructor';
-      roomInstructors.set(roomId, instName);
-      if (altRoom) roomInstructors.set(altRoom, instName);
+      variants.forEach(v => roomInstructors.set(v, instName));
     }
 
     // Broadcast updated participant roster
@@ -131,7 +149,13 @@ const syncHandler = (io, socket) => {
     }
 
     // Send instructor name if available
-    const curInst = roomInstructors.get(roomId) || (altRoom ? roomInstructors.get(altRoom) : null);
+    let curInst = null;
+    for (const v of variants) {
+      if (roomInstructors.has(v)) {
+        curInst = roomInstructors.get(v);
+        break;
+      }
+    }
     if (curInst) {
       socket.emit('room-instructor-info', { instructorName: curInst });
     }
@@ -150,8 +174,26 @@ const syncHandler = (io, socket) => {
     if (roomVideoStates.has(roomId)) {
       socket.emit('video-source-change', roomVideoStates.get(roomId));
     }
-    if (roomActiveQuizzes.has(roomId)) {
-      socket.emit('room-quiz-published', roomActiveQuizzes.get(roomId));
+    let foundQuiz = null;
+    for (const v of variants) {
+      if (roomActiveQuizzes.has(v)) {
+        foundQuiz = roomActiveQuizzes.get(v);
+        break;
+      }
+    }
+    if (foundQuiz) {
+      socket.emit('room-quiz-published', foundQuiz);
+    }
+
+    let currentTopic = null;
+    for (const v of variants) {
+      if (roomTopics.has(v)) {
+        currentTopic = roomTopics.get(v);
+        break;
+      }
+    }
+    if (currentTopic) {
+      socket.emit('room-topic-sync', { topic: currentTopic });
     }
   });
 
@@ -238,52 +280,33 @@ const syncHandler = (io, socket) => {
     }
   });
 
-  // ── Real-Time Live YouTube-Style Captions / Subtitles Stream ──
-  socket.on('live-caption-stream', (data) => {
-    const rawTarget = data?.roomId || socket.roomId;
-    const targetRoom = sanitizeRoomId(rawTarget);
-    if (targetRoom && data?.text) {
-      const payload = {
-        speaker: data.speaker || 'Instructor',
-        role: data.role || 'instructor',
-        text: data.text,
-        isFinal: !!data.isFinal,
-        timestamp: data.timestamp || Date.now()
-      };
-      console.log(`🎙️ [Live Caption] Room: ${targetRoom} | ${payload.speaker}: "${payload.text}"`);
-      socket.to(targetRoom).emit('receive-live-caption', payload);
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        socket.to(altRoom).emit('receive-live-caption', payload);
-      }
-    }
-  });
 
-  // ── Clear Live Caption (when speaker stops) ──
-  socket.on('clear-live-caption', (data) => {
-    const rawTarget = data?.roomId || socket.roomId;
-    const targetRoom = sanitizeRoomId(rawTarget);
-    if (targetRoom) {
-      socket.to(targetRoom).emit('receive-clear-caption');
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        socket.to(altRoom).emit('receive-clear-caption');
-      }
-    }
-  });
 
   // ── Live Chat ──
   socket.on('send-message', (data) => {
-    io.to(data.roomId).emit('receive-message', {
+    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
+    if (!targetRoom) return;
+    const msgPayload = {
       id: data.id || ('msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)),
+      roomId: targetRoom,
       message: data.message,
-      senderId: data.senderId,
+      senderId: data.senderId || socket.id,
       senderName: data.senderName,
       senderRole: data.senderRole || 'student',
       isDoubt: !!data.isDoubt,
+      doubtId: data.doubtId || null,
+      videoTimestamp: typeof data.videoTimestamp === 'number' ? data.videoTimestamp : null,
+      videoTimeFormatted: data.videoTimeFormatted || null,
+      isResolvedNotice: !!data.isResolvedNotice,
+      resolvedDoubtId: data.resolvedDoubtId || null,
       file: data.file || null,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
+      time: data.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    io.to(targetRoom).emit('receive-message', msgPayload);
+    const altRoom = targetRoom.replace(/-/g, '');
+    if (altRoom && altRoom !== targetRoom) {
+      io.to(altRoom).emit('receive-message', msgPayload);
+    }
   });
 
   // ── Pinned Doubts System ──
@@ -323,22 +346,6 @@ const syncHandler = (io, socket) => {
     }
   });
 
-  // ── AI Lecture Quiz Sync & Leaderboard ──
-  socket.on('publish-quiz', (data) => {
-    io.to(data.roomId).emit('room-quiz-published', data.quiz);
-  });
-
-  socket.on('submit-quiz-score', (data) => {
-    io.to(data.roomId).emit('student-score-submitted', {
-      studentId: socket.id,
-      studentName: data.studentName,
-      score: data.score,
-      total: data.total,
-      percentage: Math.round((data.score / data.total) * 100),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
-  });
-
   // ── Student Attention & Engagement Telemetry ──
   socket.on('student-engagement-update', (data) => {
     socket.to(data.roomId).emit('peer-engagement-stat', {
@@ -362,22 +369,6 @@ const syncHandler = (io, socket) => {
     io.to(data.roomId).emit('student-hand-lowered', {
       socketId: data.socketId || socket.id,
     });
-  });
-
-  // ── Category 3: Breakout Rooms / Discussion Pods ──
-  socket.on('breakout-create', (data) => {
-    // Broadcast newly created pod announcement
-    io.to(data.roomId).emit('breakout-created', {
-      podId: data.podId || (`pod_${Date.now()}`),
-      podName: data.podName,
-      createdByName: data.createdByName,
-      roomId: data.roomId,
-      membersCount: 0
-    });
-  });
-
-  socket.on('breakout-close', (data) => {
-    io.to(data.roomId).emit('breakout-closed', { podId: data.podId });
   });
 
   // ── Category 3: Session Recording Broadcast ──
@@ -510,36 +501,53 @@ const syncHandler = (io, socket) => {
     socket.to(data.roomId).emit('pin-annotation', data);
   });
 
+  // ── Classroom Topic Sync ──
+  socket.on('set-room-topic', ({ roomId: rawRoomId, topic }) => {
+    const variants = getRoomVariants(rawRoomId || socket.roomId);
+    if (variants.length > 0 && topic && typeof topic === 'string') {
+      const cleanT = topic.trim();
+      variants.forEach(v => {
+        roomTopics.set(v, cleanT);
+        io.to(v).emit('room-topic-sync', { topic: cleanT });
+      });
+      console.log(`📚 Topic updated to "${cleanT}" in room variants:`, variants);
+    }
+  });
+
   // ── AI Lecture Quiz Sync & Live Leaderboard ──
   socket.on('publish-quiz', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom && data?.quiz) {
-      roomActiveQuizzes.set(targetRoom, data.quiz);
-      io.to(targetRoom).emit('room-quiz-published', data.quiz);
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        io.to(altRoom).emit('room-quiz-published', data.quiz);
-      }
-      console.log(`📝 Quiz on topic "${data.quiz.topic || data.quiz.title}" published to room ${targetRoom}`);
+    const variants = getRoomVariants(data?.roomId || socket.roomId);
+    if (variants.length > 0 && data?.quiz) {
+      variants.forEach(v => {
+        roomActiveQuizzes.set(v, data.quiz);
+        if (data.quiz.topic) roomTopics.set(v, data.quiz.topic.trim());
+        io.to(v).emit('room-quiz-published', data.quiz);
+      });
+      console.log(`📝 Quiz on topic "${data.quiz.topic || data.quiz.title}" (${data.quiz.questions?.length || 0} questions) published to variants:`, variants);
     }
   });
 
   socket.on('submit-quiz-score', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom) {
-      io.to(targetRoom).emit('student-score-submitted', data);
-      const altRoom = targetRoom.replace(/-/g, '');
-      if (altRoom && altRoom !== targetRoom) {
-        io.to(altRoom).emit('student-score-submitted', data);
-      }
-      console.log(`🏅 Score submitted by ${data.studentName || 'Student'} in ${targetRoom}: ${data.score}/${data.total}`);
+    const variants = getRoomVariants(data?.roomId || socket.roomId);
+    if (variants.length > 0) {
+      variants.forEach(v => {
+        io.to(v).emit('student-score-submitted', data);
+      });
+      console.log(`🏅 Score submitted by ${data.studentName || 'Student'} in ${variants[0]}: ${data.score}/${data.total}`);
     }
   });
 
   socket.on('request-active-quiz', (data) => {
-    const targetRoom = sanitizeRoomId(data?.roomId) || socket.roomId;
-    if (targetRoom && roomActiveQuizzes.has(targetRoom)) {
-      socket.emit('room-quiz-published', roomActiveQuizzes.get(targetRoom));
+    const variants = getRoomVariants(data?.roomId || socket.roomId);
+    let foundQuiz = null;
+    for (const v of variants) {
+      if (roomActiveQuizzes.has(v)) {
+        foundQuiz = roomActiveQuizzes.get(v);
+        break;
+      }
+    }
+    if (foundQuiz) {
+      socket.emit('room-quiz-published', foundQuiz);
     }
   });
 
@@ -596,7 +604,7 @@ const syncHandler = (io, socket) => {
           roomMediaStates.get(socket.roomId).delete(socket.id);
         }
 
-        // Update MongoDB document
+        // Update MongoDB document: mark leftAt timestamp while preserving their attendance record
         Room.findOneAndUpdate(
           { roomId: socket.roomId },
           {
@@ -604,8 +612,7 @@ const syncHandler = (io, socket) => {
               studentsCount: remainingCount,
               isActive: remainingCount > 0,
               ...(remainingCount === 0 ? { endedAt: new Date() } : {})
-            },
-            $pull: { participants: { socketId: socket.id } }
+            }
           }
         ).catch(() => {});
       }

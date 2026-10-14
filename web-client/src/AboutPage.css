@@ -141,3 +141,81 @@
   gap: 1.5rem;
 }
 .about-cta h2 { font-size: 1.6rem !important; }
+
+/* ── Dark Mode Overrides for About Page ── */
+[data-theme="dark"] .about-container {
+  background-color: #021422;
+  background-image: 
+    radial-gradient(ellipse at 50% 15%, rgb(59 64 64) 0%, rgb(3 24 40 / 70%) 55%, #021422b3 100%), url(/tech-theme-bg.jpg);
+}
+[data-theme="dark"] .about-nav {
+  background: rgba(4, 24, 40, 0.9);
+  border-bottom-color: rgba(0, 210, 255, 0.3);
+}
+[data-theme="dark"] .about-hero h1 {
+  color: #ffffff !important;
+}
+[data-theme="dark"] .about-subtitle {
+  color: #c2f0f2;
+}
+[data-theme="dark"] .about-section h2 {
+  color: #ffffff !important;
+}
+[data-theme="dark"] .tech-pill {
+  background: rgba(3, 24, 40, 0.75);
+  border-color: rgba(0, 210, 255, 0.2);
+}
+[data-theme="dark"] .tech-name {
+  color: #ffffff;
+}
+[data-theme="dark"] .tech-desc {
+  color: #94a3b8;
+}
+[data-theme="dark"] .team-card {
+  background: rgba(3, 24, 40, 0.75);
+  border-color: rgba(0, 210, 255, 0.2);
+}
+[data-theme="dark"] .team-card h3 {
+  color: #ffffff;
+}
+[data-theme="dark"] .team-card p {
+  color: #94a3b8;
+}
+[data-theme="dark"] .about-cta h2 {
+  color: #ffffff !important;
+}
+
+/* ── Light Mode Overrides for About Page ── */
+[data-theme="light"] .about-hero h1 {
+  color: #0f172a !important;
+}
+[data-theme="light"] .about-subtitle {
+  color: #334155;
+}
+[data-theme="light"] .about-section h2 {
+  color: #0f172a !important;
+}
+[data-theme="light"] .tech-pill {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(8, 145, 178, 0.22);
+}
+[data-theme="light"] .tech-name {
+  color: #0f172a;
+}
+[data-theme="light"] .tech-desc {
+  color: #475569;
+}
+[data-theme="light"] .team-card {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(8, 145, 178, 0.22);
+  box-shadow: 0 4px 15px rgba(8, 145, 178, 0.08);
+}
+[data-theme="light"] .team-card h3 {
+  color: #0f172a;
+}
+[data-theme="light"] .team-card p {
+  color: #475569;
+}
+[data-theme="light"] .about-cta h2 {
+  color: #0f172a !important;
+}

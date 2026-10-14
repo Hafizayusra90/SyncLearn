@@ -9,9 +9,11 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 
+const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const mongoose = require('mongoose');
 

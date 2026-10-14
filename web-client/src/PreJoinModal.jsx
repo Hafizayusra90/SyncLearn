@@ -55,7 +55,7 @@ function PreJoinModal({
       setResolvedHostName(stored);
     }
 
-    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
+    const apiBase = '';
     fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(cleanId)}/info`)
       .then(res => res.json())
       .then(data => {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { isValidRealEmail, isValidRealName } from './utils/validation';
 import './ProfilePage.css';
+import logoImg from './assets/logo.png';
 
 function ProfilePage({ user, onBackToDashboard, onNavigate }) {
   const [profileName, setProfileName] = useState(user?.name && user.name !== 'Hafiza Yusra' ? user.name : (user?.name || ''));
@@ -49,7 +50,7 @@ function ProfilePage({ user, onBackToDashboard, onNavigate }) {
 
     setSaveStatus('Saving...');
     try {
-      const res = await fetch('http://localhost:5000/api/v1/auth/profile', {
+      const res = await fetch('/api/v1/auth/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

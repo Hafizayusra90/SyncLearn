@@ -1,7 +1,8 @@
 import React from 'react';
 import './AnalyticsPage.css';
+import logoImg from './assets/logo.png';
 
-function AnalyticsPage({ onNavigate }) {
+function AnalyticsPage({ onNavigate, theme, onToggleTheme }) {
   const attendanceData = [
     { id: 1, name: 'Hafiza Yusra', role: 'Student', status: 'Present', duration: '45 mins', latency: '24 ms' },
     { id: 2, name: 'Kashish', role: 'Student', status: 'Present', duration: '42 mins', latency: '38 ms' },

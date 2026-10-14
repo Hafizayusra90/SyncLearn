@@ -629,3 +629,40 @@
 .chip-text {
   color: #e2e8f0;
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .video-header-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .youtube-iframe-wrapper {
+    height: 240px !important;
+    min-height: 240px !important;
+  }
+
+  .youtube-sync-controller {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .youtube-sync-btns {
+    flex-wrap: wrap;
+  }
+
+  .dropzone-yt-form {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .dropzone-yt-input {
+    width: 100%;
+  }
+
+  .dropzone-yt-btn {
+    width: 100%;
+  }
+}

@@ -1,5 +1,6 @@
 import React from 'react';
 import './FeaturesPage.css';
+import logoImg from './assets/logo.png';
 
 const featuresList = [
   {

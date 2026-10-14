@@ -1,9 +1,14 @@
 import { io } from 'socket.io-client';
 
-// Node.js Backend Server URL (dynamically adapts to current host, e.g. 10.216.84.64 on mobile / LAN or localhost on PC)
-const hostname = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-const SOCKET_URL = `http://${hostname}:5000`;
+// Dynamic socket URL:
+// Connects to window.location.origin so that on localhost, Same Wi-Fi (LAN IP), or Public Tunnel (ngrok / mobile data):
+// Vite's proxy automatically routes /socket.io with WebSockets to the Node.js backend on port 5000!
+const getSocketUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:5000';
+  return window.location.origin;
+};
 
-export const socket = io(SOCKET_URL, {
-  autoConnect: false, // Prevents automatic connection on page load
+export const socket = io(getSocketUrl(), {
+  autoConnect: false,
+  transports: ['websocket', 'polling'],
 });

@@ -7,10 +7,6 @@ import WhiteboardCanvas from './WhiteboardCanvas';
 import { socket } from './socket';
 import VideoPlayer from './components/VideoPlayer';
 import AIQuizModal from './AIQuizModal';
-import BreakoutPodsModal from './BreakoutPodsModal';
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
 // Remote peer video & audio component with dedicated audio element and speaking indicator
 const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const videoRef = useRef(null);
@@ -266,7 +262,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
 };
 
 // ── Local User Video Card with Auto-play & Live Speaking Indicator ──
-const LocalVideo = ({ stream, isScreenSharing, videoOn, isSpeaking, micOn, isBackgroundBlurred = false, isAutoFramed = false, user, onOpenSettings }) => {
+const LocalVideo = ({ stream, videoOn, isSpeaking, micOn, isBackgroundBlurred = false, isAutoFramed = false, user, onOpenSettings }) => {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -330,7 +326,7 @@ const LocalVideo = ({ stream, isScreenSharing, videoOn, isSpeaking, micOn, isBac
 
       <span className="video-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          {isScreenSharing ? '🖥️ Screen Share' : (user?.role === 'instructor' ? '👨‍🏫 You (Instructor)' : '🎓 You')}
+          {user?.role === 'instructor' ? '👨‍🏫 You (Instructor)' : '🎓 You'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
           <span
@@ -583,13 +579,26 @@ function ActiveRoomPage({
         : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
       if (userKey) {
         const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+        const cleanR = cleanRoomId(roomId);
+        const rosterCount = (() => {
+          try {
+            const r = JSON.parse(localStorage.getItem('synclearn_attendance_' + cleanR) || '[]');
+            return Array.isArray(r) ? r.length : 0;
+          } catch(e) { return 0; }
+        })();
+        const totalAttendees = Math.max(participants.length, rosterCount, 1);
+
+        const savedTopic = localStorage.getItem('synclearn_topic_' + cleanR) || localStorage.getItem('synclearn_topic_' + cleanR.replace(/-/g, '')) || '';
+        const savedHost = localStorage.getItem('synclearn_host_' + cleanR) || localStorage.getItem('synclearn_host_' + cleanR.replace(/-/g, '')) || '';
+
         const newRecord = {
           code: roomId,
-          title: `Live Session (${roomId})`,
+          title: savedTopic || `Live Session (${roomId})`,
+          topic: savedTopic || `Live Session (${roomId})`,
           date: 'Just now',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          students: participants.length || 1,
-          instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+          students: totalAttendees,
+          instructor: isInstructor ? (user?.name || 'You') : (savedHost || roomHostName || 'Instructor')
         };
         const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
         localStorage.setItem(userKey, JSON.stringify(updated));
@@ -604,8 +613,7 @@ function ActiveRoomPage({
   const [networkLanIp, setNetworkLanIp] = useState('10.216.84.64');
 
   useEffect(() => {
-    const backendHost = window.location.hostname || 'localhost';
-    fetch(`http://${backendHost}:5000/api/v1/network-info`)
+    fetch('/api/v1/network-info')
       .then(r => r.json())
       .then(d => {
         if (d?.lanIp && d.lanIp !== 'localhost') {
@@ -622,9 +630,13 @@ function ActiveRoomPage({
     if (preferLocal) {
       return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
     }
+    // If running on a public tunnel or non-localhost host
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return `${window.location.origin}/?room=${encodeURIComponent(roomId)}${hostParam}`;
+    }
     const host = (networkLanIp && networkLanIp !== 'localhost')
       ? networkLanIp
-      : (window.location.hostname !== 'localhost' ? window.location.hostname : '10.216.84.64');
+      : '192.168.100.135';
     return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
   };
 
@@ -789,16 +801,8 @@ function ActiveRoomPage({
     setIsAudioMenuOpen(false);
   };
 
-  // Speech transcription state
-  // Speech transcription & YouTube-Style Live Subtitles state
-  const [transcription, setTranscription]   = useState([]);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [liveCaption, setLiveCaption]       = useState(null); // { speaker, role, text, isFinal, timestamp }
-  const [isCaptionsEnabled, setIsCaptionsEnabled] = useState(true);
-  const captionTimeoutRef                   = useRef(null);
-  const recognitionRef                      = useRef(null);
-  const lastSpeechRecTimeRef                = useRef(0);
-  const lastVoiceDetectedTimeRef            = useRef(0);
+  // Speech transcription & Notes state
+  const [transcription, setTranscription] = useState([]);
 
   // Chat, Doubts & File Sharing
   const [messages, setMessages]           = useState([]);
@@ -810,15 +814,22 @@ function ActiveRoomPage({
   const fileInputRef = useRef(null);
   const chatEndRef   = useRef(null);
 
-  // Screen share
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const screenTrackRef  = useRef(null);
   const cameraTrackRef  = useRef(null);
 
   // ── Category 1: AI Quiz, AI Co-Teacher & Engagement States ──
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
   const [activeQuizData, setActiveQuizData]   = useState(null);
-  const [currentLectureTopic, setCurrentLectureTopic] = useState('WebRTC & Real-Time Sync');
+  const [currentLectureTopic, setCurrentLectureTopic] = useState(() => {
+    try {
+      const cleanR = cleanRoomId(roomId);
+      const saved = localStorage.getItem('synclearn_topic_' + cleanR) || 
+                    localStorage.getItem('synclearn_topic_' + cleanR.replace(/-/g, '')) ||
+                    localStorage.getItem('synclearn_meeting_topic') || '';
+      return saved.trim() || 'WebRTC & Real-Time Sync';
+    } catch (e) {
+      return 'WebRTC & Real-Time Sync';
+    }
+  });
   const [hasHandRaised, setHasHandRaised]     = useState(false);
   const [handRaisedUsers, setHandRaisedUsers] = useState({}); // { socketId: { studentName, time } }
   const [engagementStats, setEngagementStats] = useState({}); // { socketId: { isFocused, score } }
@@ -840,8 +851,7 @@ function ActiveRoomPage({
   const [isAiThinking, setIsAiThinking]       = useState(false);
   const aiChatEndRef                          = useRef(null);
 
-  // ── Category 3: Breakout Pods & Session Recording States ──
-  const [isBreakoutModalOpen, setIsBreakoutModalOpen] = useState(false);
+  // ── Category 3: Session Recording States ──
   const [isRecordingSession, setIsRecordingSession]   = useState(false);
   const [remoteRecordingNotice, setRemoteRecordingNotice] = useState(null); // { isRecording, recordedByName }
   const mediaRecorderRef                              = useRef(null);
@@ -856,175 +866,26 @@ function ActiveRoomPage({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Helper to simulate live voice captions for instant testing/demonstration
-  const handleSimulateLiveCaption = (sampleText) => {
-    const textToStream = sampleText || (isInstructor
-      ? "Welcome class! Today we are discussing data structures, algorithms, and real-time collaboration."
-      : "Teacher, I have understood this concept and it is completely clear!");
-    const words = textToStream.split(' ');
-    let currentWords = [];
-
-    if (captionTimeoutRef.current) clearTimeout(captionTimeoutRef.current);
-
-    words.forEach((word, index) => {
-      setTimeout(() => {
-        currentWords.push(word);
-        const isFinal = index === words.length - 1;
-        const payload = {
-          speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
-          role: isInstructor ? 'instructor' : 'student',
-          text: currentWords.join(' '),
-          isFinal,
-          timestamp: Date.now()
-        };
-
-        setLiveCaption(payload);
-        socket.emit('live-caption-stream', { roomId, ...payload });
-
-        if (isFinal) {
-          const entry = {
-            id: 'trans_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-            speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
-            text: textToStream,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
-          setTranscription(prev => [...prev, entry]);
-          socket.emit('new-transcription', { roomId, entry });
-
-          captionTimeoutRef.current = setTimeout(() => {
-            setLiveCaption(null);
-            socket.emit('clear-live-caption', { roomId });
-          }, 4500);
-        }
-      }, (index + 1) * 190);
-    });
-  };
-
-  // Web Speech API (YouTube-Style Live Real-Time Subtitles & Transcription)
+  // Fetch official room topic & instructor from backend to guarantee student has the exact classroom topic
   useEffect(() => {
-    if (!SpeechRecognition) return;
-
-    let recognition = null;
-    let shouldBeRunning = micOn;
-    let restartTimer = null;
-
-    const startRecognition = () => {
-      if (!shouldBeRunning) return;
-      try {
-        if (recognitionRef.current) {
-          try { recognitionRef.current.stop(); } catch (e) {}
+    const cleanR = cleanRoomId(roomId);
+    if (!cleanR) return;
+    fetch(`/api/v1/rooms/${cleanR}/info`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.success && d.title && d.title !== 'Live Classroom' && d.title.trim().length > 1) {
+          const freshTopic = d.title.trim();
+          setCurrentLectureTopic(freshTopic);
+          try {
+            localStorage.setItem('synclearn_topic_' + cleanR, freshTopic);
+            localStorage.setItem('synclearn_topic_' + cleanR.replace(/-/g, ''), freshTopic);
+          } catch(e) {}
         }
+      })
+      .catch(e => console.warn('Failed to fetch room topic info:', e));
+  }, [roomId]);
 
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true; // Enables live real-time words streaming like YouTube!
-        recognition.lang = navigator.language || 'en-US';
-        recognition.maxAlternatives = 1;
 
-        recognition.onstart = () => {
-          setIsTranscribing(true);
-        };
-
-        recognition.onresult = (event) => {
-          lastSpeechRecTimeRef.current = Date.now();
-          let interim = '';
-          let finalChunk = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalChunk += transcript;
-            } else {
-              interim += transcript;
-            }
-          }
-
-          const currentText = (finalChunk || interim).trim();
-          if (currentText) {
-            const targetCleanRoom = cleanRoomId(roomId);
-            const captionPayload = {
-              speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
-              role: isInstructor ? 'instructor' : 'student',
-              text: currentText,
-              isFinal: !!finalChunk.trim(),
-              timestamp: Date.now()
-            };
-
-            // 1. Show immediately on local screen
-            setLiveCaption(captionPayload);
-
-            // 2. Clear previous timeout and set 4.5-second hold
-            if (captionTimeoutRef.current) clearTimeout(captionTimeoutRef.current);
-            captionTimeoutRef.current = setTimeout(() => {
-              setLiveCaption(null);
-              socket.emit('clear-live-caption', { roomId: targetCleanRoom });
-            }, 4500);
-
-            // 3. Broadcast in real time to all student/peer screens
-            socket.emit('live-caption-stream', {
-              roomId: targetCleanRoom,
-              ...captionPayload
-            });
-
-            // 4. If sentence is finalized, also archive in lecture notes history
-            if (finalChunk.trim()) {
-              const entry = {
-                id: 'trans_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
-                text: finalChunk.trim(),
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              };
-              setTranscription(prev => [...prev, entry]);
-              socket.emit('new-transcription', { roomId: targetCleanRoom, entry });
-            }
-          }
-        };
-
-        recognition.onerror = (err) => {
-          if (err.error !== 'no-speech') {
-            console.warn('SpeechRecognition notice:', err.error);
-          }
-        };
-
-        recognition.onend = () => {
-          if (shouldBeRunning) {
-            restartTimer = setTimeout(() => {
-              if (shouldBeRunning) startRecognition();
-            }, 300);
-          } else {
-            setIsTranscribing(false);
-          }
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
-      } catch (e) {
-        console.warn('Speech recognition init note:', e);
-      }
-    };
-
-    if (micOn) {
-      shouldBeRunning = true;
-      startRecognition();
-    } else {
-      shouldBeRunning = false;
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-        recognitionRef.current = null;
-      }
-      setIsTranscribing(false);
-    }
-
-    return () => {
-      shouldBeRunning = false;
-      if (restartTimer) clearTimeout(restartTimer);
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (e) {}
-        recognitionRef.current = null;
-      }
-      setIsTranscribing(false);
-    };
-  }, [micOn, roomId, user, isInstructor]);
 
   // Auto-record session attendance in real-time when room is entered or roster updates
   useEffect(() => {
@@ -1035,12 +896,21 @@ function ActiveRoomPage({
         : (user?._id ? `synclearn_completed_sessions_${user._id}` : null);
       if (userKey) {
         const existing = JSON.parse(localStorage.getItem(userKey) || '[]');
+        const cleanR = cleanRoomId(roomId);
+        const rosterCount = (() => {
+          try {
+            const r = JSON.parse(localStorage.getItem('synclearn_attendance_' + cleanR) || '[]');
+            return Array.isArray(r) ? r.length : 0;
+          } catch(e) { return 0; }
+        })();
+        const totalAttendees = Math.max(participants.length, rosterCount, 1);
+
         const newRecord = {
           code: roomId,
           title: `Live Session (${roomId})`,
           date: 'Today',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          students: participants.length > 0 ? participants.length : 1,
+          students: totalAttendees,
           instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
         };
         const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
@@ -1082,7 +952,8 @@ function ActiveRoomPage({
         roomId: cleanRoom,
         userId: socket.id,
         userName: user?.name || (isInstructor ? 'Instructor' : 'Student'),
-        userRole: user?.role || 'student',
+        userRole: isInstructor ? 'instructor' : (user?.role || 'student'),
+        roomTopic: currentLectureTopic
       });
       socket.emit('media-state-change', { roomId: cleanRoom, videoOn: shouldEnableVideo, micOn: Boolean(initialMicOn) });
 
@@ -1144,20 +1015,7 @@ function ActiveRoomPage({
       }
     });
 
-    // Receive YouTube-style real-time live captions on student/peer screen
-    socket.on('receive-live-caption', data => {
-      if (data?.text) {
-        setLiveCaption(data);
-        if (captionTimeoutRef.current) clearTimeout(captionTimeoutRef.current);
-        captionTimeoutRef.current = setTimeout(() => {
-          setLiveCaption(null);
-        }, 4500);
-      }
-    });
 
-    socket.on('receive-clear-caption', () => {
-      setLiveCaption(null);
-    });
 
     // Host Controls: Mute (all or individual)
     socket.on('force-mute', () => {
@@ -1237,22 +1095,54 @@ function ActiveRoomPage({
           } catch(e) {}
           if (!Array.isArray(currentRoster)) currentRoster = [];
 
-          const existingNames = new Set(currentRoster.map(r => r.name));
+          // Helper to normalize names for strict deduplication
+          const normalizePerson = (str) => String(str || '').replace(/\(Instructor\)/gi, '').trim().toLowerCase();
+
+          // Map existing entries by normalized name
+          const rosterMap = new Map();
+          currentRoster.forEach(item => {
+            const key = normalizePerson(item.name || item.rawName || item.displayName);
+            if (key) rosterMap.set(key, item);
+          });
+
+          const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
           list.forEach(p => {
-            const displayName = p.userName || (p.userRole === 'instructor' ? 'Instructor' : 'Student');
-            if (!existingNames.has(displayName)) {
-              const isHost = p.userRole === 'instructor';
-              const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              currentRoster.push({
-                name: isHost ? `${displayName} (Instructor)` : displayName,
+            const rawName = (p.userName || (p.userRole === 'instructor' ? 'Instructor' : 'Student')).trim();
+            const normKey = normalizePerson(rawName);
+            const isHost = p.userRole === 'instructor';
+            const formattedName = isHost ? `${rawName} (Instructor)` : rawName;
+
+            if (normKey && !rosterMap.has(normKey)) {
+              rosterMap.set(normKey, {
+                rawName,
+                name: formattedName,
+                role: isHost ? 'Instructor' : 'Student',
                 joinTime: nowTime,
+                leaveTime: '-',
                 status: isHost ? 'Host / Present' : 'Present',
                 verification: 'Verified'
               });
-              existingNames.add(displayName);
+            } else if (normKey && rosterMap.has(normKey)) {
+              const existing = rosterMap.get(normKey);
+              if (isHost && !existing.name.includes('(Instructor)')) {
+                existing.name = formattedName;
+                existing.role = 'Instructor';
+                existing.status = 'Host / Present';
+              }
             }
           });
-          localStorage.setItem(storageKey, JSON.stringify(currentRoster));
+
+          // Check if any previously active participants left
+          const activeNormSet = new Set(list.map(p => normalizePerson(p.userName || '')));
+          for (const [key, item] of rosterMap.entries()) {
+            if (!activeNormSet.has(key) && item.leaveTime === '-') {
+              item.leaveTime = nowTime;
+            }
+          }
+
+          const updatedRoster = Array.from(rosterMap.values());
+          localStorage.setItem(storageKey, JSON.stringify(updatedRoster));
         } catch(e) {}
       }
     });
@@ -1316,6 +1206,12 @@ function ActiveRoomPage({
       showToast(`📝 Pop Quiz on "${quiz.topic || quiz.title || 'Lecture'}" Launched!`, 'info');
     });
 
+    socket.on('room-topic-sync', ({ topic }) => {
+      if (topic && typeof topic === 'string' && topic.trim()) {
+        setCurrentLectureTopic(topic.trim());
+      }
+    });
+
     // ── Category 1: Hand Raise Events ──
     socket.on('student-hand-raised', (data) => {
       setHandRaisedUsers(prev => ({
@@ -1360,12 +1256,10 @@ function ActiveRoomPage({
 
     return () => {
       userStreamRef.current?.getTracks().forEach(t => t.stop());
-      screenTrackRef.current?.stop();
       socket.off('connect'); socket.off('disconnect');
       socket.off('user-connected'); socket.off('user-joined');
       socket.off('receiving-returned-signal'); socket.off('user-disconnected');
       socket.off('receive-message'); socket.off('receive-transcription');
-      socket.off('receive-live-caption'); socket.off('receive-clear-caption');
       socket.off('force-mute'); socket.off('force-removed');
       socket.off('force-toggle-camera'); socket.off('peer-media-state-change');
       socket.off('room-media-states-sync');
@@ -1374,6 +1268,7 @@ function ActiveRoomPage({
       socket.off('doubt-pinned'); socket.off('doubt-resolved');
       socket.off('workspace-view-sync'); socket.off('video-source-change');
       socket.off('room-quiz-published');
+      socket.off('room-topic-sync');
       socket.off('student-hand-raised'); socket.off('student-hand-lowered');
       socket.off('peer-engagement-stat');
       socket.off('recording-status-change');
@@ -1584,7 +1479,7 @@ function ActiveRoomPage({
           }
         };
 
-        // User stops screen share via browser stop button
+        // User stops screen capture via browser stop sharing button
         displayStream.getVideoTracks()[0].onended = () => {
           if (recorder.state !== 'inactive') recorder.stop();
         };
@@ -2086,48 +1981,6 @@ function ActiveRoomPage({
     showToast('📥 Chat log downloaded as TXT!');
   };
 
-  const toggleScreenShare = async () => {
-    if (!isScreenSharing) {
-      try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const screenTrack  = screenStream.getVideoTracks()[0];
-        const camTrack     = userStreamRef.current.getVideoTracks()[0];
-        screenTrackRef.current = screenTrack;
-
-        peersRef.current.forEach(({ peer }) => {
-          if (peer && camTrack && !peer.destroyed)
-            peer.replaceTrack(camTrack, screenTrack, userStreamRef.current);
-        });
-        if (camTrack) userStreamRef.current.removeTrack(camTrack);
-        userStreamRef.current.addTrack(screenTrack);
-        setUserStream(new MediaStream(userStreamRef.current.getTracks()));
-        setIsScreenSharing(true);
-        screenTrack.onended = stopScreenShare;
-      } catch (err) { console.error('Screen share error:', err); }
-    } else { stopScreenShare(); }
-  };
-
-  const stopScreenShare = async () => {
-    const activeScreen = screenTrackRef.current;
-    try {
-      let camTrack = cameraTrackRef.current;
-      if (!camTrack || camTrack.readyState === 'ended') {
-        const cam = await navigator.mediaDevices.getUserMedia({ video: true });
-        camTrack = cam.getVideoTracks()[0];
-        cameraTrackRef.current = camTrack;
-      }
-      camTrack.enabled = true;
-      peersRef.current.forEach(({ peer }) => {
-        if (peer && activeScreen && camTrack && !peer.destroyed)
-          peer.replaceTrack(activeScreen, camTrack, userStreamRef.current);
-      });
-      if (activeScreen) { userStreamRef.current.removeTrack(activeScreen); activeScreen.stop(); }
-      userStreamRef.current.addTrack(camTrack);
-      setUserStream(new MediaStream(userStreamRef.current.getTracks()));
-    } catch (err) { console.error('Camera restore failed:', err); }
-    finally { screenTrackRef.current = null; setIsScreenSharing(false); setVideoOn(true); }
-  };
-
   return (
     <div className="room-container">
       {/* ── Floating Toast Notification ── */}
@@ -2318,7 +2171,7 @@ function ActiveRoomPage({
                     setIsSidebarCollapsed(false);
                     setActiveCategory('tools');
                   }}
-                  title="Tools & Apps (Screen Share, AI Tutor, Quiz, Notes, CC)"
+                  title="Tools & Apps (AI Tutor, Quiz, Notes, CC)"
                 >
                   <span className="sidebar-item-icon">🛠️</span>
                 </button>
@@ -2446,20 +2299,6 @@ function ActiveRoomPage({
 
                   {activeCategory === 'tools' && (
                     <div className="sidebar-sub-items">
-                      {/* Share Screen */}
-                      {/* <button
-                        type="button"
-                        className={`sidebar-nav-item ${isScreenSharing ? 'active' : ''}`}
-                        onClick={toggleScreenShare}
-                        title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
-                      >
-                        <span className="sidebar-item-icon">🖥️</span>
-                        <div className="sidebar-item-label">
-                          <span className="sidebar-item-title">{isScreenSharing ? 'Stop Sharing' : 'Share Screen'}</span>
-                          <span className="sidebar-item-sub">Present your screen</span>
-                        </div>
-                      </button> */}
-
                       {/* AI Co-Teacher Tutor */}
                       <button
                         type="button"
@@ -2494,30 +2333,16 @@ function ActiveRoomPage({
                         type="button"
                         className={`sidebar-nav-item ${activeQuizData && !isInstructor ? 'active' : ''}`}
                         onClick={() => setIsQuizModalOpen(true)}
-                        title={isInstructor ? "Launch AI Lecture Pop Quiz on Current Topic" : (activeQuizData ? `Take Live Quiz: ${activeQuizData.topic || 'Active'}` : "Take AI Lecture Quiz")}
+                        title={isInstructor ? `Generate & Launch 20-Question AI Quiz on "${currentLectureTopic}"` : (activeQuizData ? `Take Live 20-Question Quiz: ${activeQuizData.topic || currentLectureTopic}` : `Take AI Quiz on "${currentLectureTopic}"`)}
                       >
                         <span className="sidebar-item-icon">📝</span>
                         <div className="sidebar-item-label">
                           <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : (activeQuizData ? `Quiz: ${activeQuizData.topic || 'Active'}` : 'Take AI Quiz')}</span>
-                          <span className="sidebar-item-sub">{isInstructor ? 'Topic-Based Quiz' : (activeQuizData ? '1 Live Quiz Available' : 'Lecture Assessment')}</span>
+                          <span className="sidebar-item-sub">{isInstructor ? `20 Qs: ${currentLectureTopic}` : (activeQuizData ? '20 Live Qs Ready' : `20 Qs on ${currentLectureTopic}`)}</span>
                         </div>
                         {activeQuizData && !isInstructor && (
                           <span className="sidebar-item-badge amber">LIVE</span>
                         )}
-                      </button>
-
-                      {/* Breakout Discussion Pods */}
-                      <button
-                        type="button"
-                        className="sidebar-nav-item"
-                        onClick={() => setIsBreakoutModalOpen(true)}
-                        title="Breakout Discussion Rooms & Pods"
-                      >
-                        <span className="sidebar-item-icon">💬</span>
-                        <div className="sidebar-item-label">
-                          <span className="sidebar-item-title">Breakout Pods</span>
-                          <span className="sidebar-item-sub">Group Collaboration</span>
-                        </div>
                       </button>
 
                       {/* Record Session */}
@@ -2534,32 +2359,6 @@ function ActiveRoomPage({
                         </div>
                       </button>
 
-                      {/* Live Captions (CC) Toggle */}
-                      {/* <button
-                        type="button"
-                        className={`sidebar-nav-item ${isCaptionsEnabled ? 'active' : ''}`}
-                        onClick={() => {
-                          const nextState = !isCaptionsEnabled;
-                          setIsCaptionsEnabled(nextState);
-                          if (nextState) {
-                            showToast('🔤 Live Captions turned ON!', 'success');
-                            if (isInstructor) {
-                              handleSimulateLiveCaption('Live lecture speech captions active. Welcome to SyncLearn classroom!');
-                            }
-                          } else {
-                            showToast('🔤 Live Captions turned OFF', 'info');
-                            setLiveCaption(null);
-                            socket.emit('clear-live-caption', { roomId: cleanRoomId(roomId) });
-                          }
-                        }}
-                        title={isCaptionsEnabled ? "Turn OFF Live Subtitles (CC)" : "Turn ON Live Subtitles (CC)"}
-                      >
-                        <span className="sidebar-item-icon">🔤</span>
-                        <div className="sidebar-item-label">
-                          <span className="sidebar-item-title">Live Captions</span>
-                          <span className="sidebar-item-sub">{isCaptionsEnabled ? 'CC Active' : 'CC Off'}</span>
-                        </div>
-                      </button> */}
 
                       {/* Raise Hand (For Students) */}
                       {!isInstructor && (
@@ -2698,7 +2497,6 @@ function ActiveRoomPage({
           <div className={`video-grid ${workspaceView === 'cameras' ? 'large-grid' : workspaceView === 'whiteboard' ? 'compact-grid' : ''}`}>
             <LocalVideo
               stream={userStream}
-              isScreenSharing={isScreenSharing}
               videoOn={videoOn}
               isSpeaking={localMicVolume > 15 && micOn}
               micOn={micOn}
@@ -2738,14 +2536,14 @@ function ActiveRoomPage({
                     {activeTab === 'chat' && '💬'}
                     {activeTab === 'ai' && '🤖'}
                     {activeTab === 'notes' && '🎙️'}
-                    {activeTab === 'host' && (isInstructor ? '⚙️' : '👥')}
+                    {activeTab === 'host' && '👥'}
                   </span>
                   <div className="panel-title-text-group">
                     <span className="panel-main-title">
                       {activeTab === 'chat' && 'Classroom Discussion'}
                       {activeTab === 'ai' && 'AI Co-Teacher Tutor'}
                       {activeTab === 'notes' && 'Live Lecture Notes'}
-                      {activeTab === 'host' && (isInstructor ? 'Host Management' : 'Classroom Roster')}
+                      {activeTab === 'host' && 'Classroom Participants'}
                     </span>
                     <span className="panel-sub-title">
                       {activeTab === 'chat' && 'Live Doubts & Peer Q&A'}
@@ -3181,41 +2979,42 @@ function ActiveRoomPage({
                 </div>
               )}
 
-              {/* Tab 3: Host Controls & Participants Roster */}
+              {/* Tab 3: Host Controls & Participants List */}
               {activeTab === 'host' && (
                 <div className="host-panel-content">
-                  <div className="host-section-title">
-                    {isInstructor ? '👨‍🏫 Host Management' : '👥 Room Participants'}
-                  </div>
-
                   {/* Instructor Action Controls */}
                   {isInstructor && (
-                    <div className="host-actions-grid">
-                      <button
-                        type="button"
-                        className={`host-action-btn ${isMuteAllActive ? 'btn-muted' : 'btn-mute-all'}`}
-                        onClick={handleHostMuteAll}
-                        title={isMuteAllActive ? "All participants are muted (Click to unmute)" : "Mute all students in this session"}
-                      >
-                        <span>🔇</span>
-                        <span>{isMuteAllActive ? 'Muted' : 'Mute All'}</span>
-                      </button>
+                    <>
+                      <div className="host-section-title">
+                        👨‍🏫 Host Management
+                      </div>
+                      <div className="host-actions-grid">
+                        <button
+                          type="button"
+                          className={`host-action-btn ${isMuteAllActive ? 'btn-muted' : 'btn-mute-all'}`}
+                          onClick={handleHostMuteAll}
+                          title={isMuteAllActive ? "All participants are muted (Click to unmute)" : "Mute all students in this session"}
+                        >
+                          <span>🔇</span>
+                          <span>{isMuteAllActive ? 'Muted' : 'Mute All'}</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        className={`host-action-btn ${isRoomLocked ? 'btn-unlock' : 'btn-lock'}`}
-                        onClick={handleToggleRoomLock}
-                        title={isRoomLocked ? "Unlock room to allow new students to enter" : "Lock room to prevent new entries"}
-                      >
-                        <span>{isRoomLocked ? '🔓' : '🔒'}</span>
-                        <span>{isRoomLocked ? 'Unlock Room' : 'Lock Room'}</span>
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          className={`host-action-btn ${isRoomLocked ? 'btn-unlock' : 'btn-lock'}`}
+                          onClick={handleToggleRoomLock}
+                          title={isRoomLocked ? "Unlock room to allow new students to enter" : "Lock room to prevent new entries"}
+                        >
+                          <span>{isRoomLocked ? '🔓' : '🔒'}</span>
+                          <span>{isRoomLocked ? 'Unlock Room' : 'Lock Room'}</span>
+                        </button>
+                      </div>
+                    </>
                   )}
 
-                  {/* Participants Roster Header */}
+                  {/* Connected Participants Header */}
                   <div className="participants-list-header">
-                    <span>Connected Roster ({participants.length || 1})</span>
+                    <span>Connected ({participants.length || 1})</span>
                     <span className="status-live-dot">● Live</span>
                   </div>
 
@@ -3579,7 +3378,7 @@ function ActiveRoomPage({
             type="button"
             className={`zoom-main-btn ${activeTab === 'host' ? 'active-tab-btn' : ''}`}
             onClick={() => setActiveTab(prev => prev === 'host' ? null : 'host')}
-            title="View Participants Roster"
+            title="View Participants"
           >
             <div className="zoom-btn-icon">
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -3674,7 +3473,7 @@ function ActiveRoomPage({
                   setIsParticipantsMenuOpen(false);
                 }}
               >
-                <span className="item-text">Open Roster Panel</span>
+                <span className="item-text">Open Participants Panel</span>
               </button>
             </div>
           )}
@@ -3852,32 +3651,6 @@ function ActiveRoomPage({
         </div>
       </footer>
 
-      {/* ── YouTube-Style Live Subtitles / Captions (Top-Level Fixed Overlay) ── */}
-      {isCaptionsEnabled && liveCaption && liveCaption.text && (
-        <div className="youtube-live-caption-container" role="region" aria-label="Live Lecture Captions">
-          <div className="youtube-caption-box">
-            <div className="youtube-caption-header">
-              <div className="youtube-caption-speaker-row">
-                <span className={`youtube-caption-speaker-tag ${liveCaption.role === 'instructor' ? 'youtube-caption-speaker-instructor' : 'youtube-caption-speaker-student'}`}>
-                  {liveCaption.role === 'instructor' ? '👨‍🏫 Instructor' : '🎓 Student'} • {liveCaption.speaker}
-                </span>
-                <span className="youtube-caption-live-indicator">
-                  <span className="youtube-caption-pulse-dot"></span>
-                  LIVE CC
-                </span>
-              </div>
-              <span className="youtube-caption-cc-logo">CC</span>
-            </div>
-            <div className="youtube-caption-text">
-              <span className={liveCaption.isFinal ? 'youtube-caption-final' : 'youtube-caption-interim'}>
-                {liveCaption.text}
-              </span>
-              {!liveCaption.isFinal && <span className="youtube-caption-cursor">▌</span>}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Instructor Leave Confirmation Modal ── */}
       {isLeaveModalOpen && (
         <div
@@ -4028,24 +3801,16 @@ function ActiveRoomPage({
         isHost={isInstructor}
         transcription={transcription.map(t => t.text).join('. ')}
         currentVideoTitle={currentLectureTopic}
+        currentLectureTopic={currentLectureTopic}
         socket={socket}
         roomId={roomId}
         userName={user?.name || (isInstructor ? 'Instructor' : 'Student')}
+        roomHostName={roomHostName}
         activeQuizData={activeQuizData}
         onQuizPublished={(publishedQuiz) => {
           setActiveQuizData(publishedQuiz);
-          showToast(`🚀 Quiz on "${publishedQuiz?.topic || 'Lecture'}" launched to classroom!`, 'success');
+          showToast(`🚀 20-Question Quiz on "${publishedQuiz?.topic || 'Lecture'}" launched to classroom!`, 'success');
         }}
-      />
-
-      {/* Breakout Discussion Pods Modal */}
-      <BreakoutPodsModal
-        isOpen={isBreakoutModalOpen}
-        onClose={() => setIsBreakoutModalOpen(false)}
-        isHost={isInstructor}
-        user={user}
-        roomId={roomId}
-        socket={socket}
       />
     </div>
   );

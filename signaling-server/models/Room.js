@@ -4,7 +4,17 @@ const participantSchema = new mongoose.Schema({
   socketId: { type: String },
   userName: { type: String, default: 'Student' },
   userRole: { type: String, default: 'student' },
-  joinedAt: { type: Date, default: Date.now }
+  joinedAt: { type: Date, default: Date.now },
+  leftAt: { type: Date }
+}, { _id: false });
+
+const lectureMaterialSchema = new mongoose.Schema({
+  fileName: { type: String, required: true },
+  fileUrl: { type: String, required: true },
+  fileType: { type: String, default: 'document' },
+  fileSize: { type: String, default: '' },
+  uploadedBy: { type: String, default: 'Instructor' },
+  uploadedAt: { type: Date, default: Date.now }
 }, { _id: false });
 
 const roomSchema = new mongoose.Schema({
@@ -16,6 +26,7 @@ const roomSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   studentsCount: { type: Number, default: 0 },
   participants: [participantSchema],
+  lectureMaterials: [lectureMaterialSchema],
   endedAt: { type: Date }
 }, { timestamps: true });
 

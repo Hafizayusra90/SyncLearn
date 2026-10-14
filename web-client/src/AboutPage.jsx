@@ -1,5 +1,6 @@
 import React from 'react';
 import './AboutPage.css';
+import logoImg from './assets/logo.png';
 
 const teamMembers = [
   { name: 'Hafiza Yusra',  role: 'Full-Stack Lead & WebRTC Engineer', avatar: '👩‍💻', skills: ['WebRTC', 'React', 'Node.js'] },

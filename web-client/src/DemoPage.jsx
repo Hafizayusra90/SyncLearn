@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './DemoPage.css';
+import logoImg from './assets/logo.png';
 
 const TIMELINE_CHAPTERS = [
   {

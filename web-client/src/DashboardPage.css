@@ -220,15 +220,16 @@
 }
 .dash-input::placeholder { color: var(--text-dim); }
 
-/* History Section */
+/* History Section (Matches Join a Live Class box in dark mode) */
 .history-section {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.06) 0%, rgba(30, 41, 59, 0.6) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 16px;
   padding: 1.5rem;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 18px rgba(8, 145, 178, 0.08);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 25px rgba(34, 197, 94, 0.08);
 }
 .history-section h3 {
   font-size: 1rem;
@@ -243,16 +244,77 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: 1.1rem 1.35rem;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   transition: var(--transition);
 }
-.history-item:hover { border-color: var(--border-light); background: #ffffff; }
-.history-info h4 { font-size: 0.95rem !important; font-weight: 600 !important; margin-bottom: 0.2rem !important; color: #042f2e !important; }
-.history-info p  { font-size: 0.8rem; color: var(--text-dim); }
-.history-info code { font-size: 0.78rem; }
+.history-item:hover { 
+  border-color: rgba(34, 197, 94, 0.5); 
+  background: rgba(15, 23, 42, 0.95); 
+  transform: translateY(-1px);
+}
+.history-info h4 { 
+  font-size: 0.98rem !important; 
+  font-weight: 700 !important; 
+  margin-bottom: 0.25rem !important; 
+  color: #f8fafc !important; 
+}
+.history-info p  { font-size: 0.82rem; color: #94a3b8; }
+.history-info code { 
+  font-size: 0.78rem; 
+  background: rgba(34, 197, 94, 0.15); 
+  color: #4ade80; 
+  border: 1px solid rgba(34, 197, 94, 0.35); 
+  padding: 2px 7px; 
+  border-radius: 4px; 
+}
+
+.history-material-box {
+  font-size: 0.78rem;
+  color: #38bdf8;
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-material-box strong { color: #f8fafc; }
+
+/* Light Theme overrides for History Section */
+[data-theme="light"] .history-section {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.25) !important;
+  box-shadow: 0 10px 30px rgba(8, 145, 178, 0.10), 0 0 20px rgba(6, 182, 212, 0.08) !important;
+}
+[data-theme="light"] .history-item {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+}
+[data-theme="light"] .history-item:hover {
+  background: #ffffff !important;
+  border-color: #0891b2 !important;
+}
+[data-theme="light"] .history-info h4 {
+  color: #042f2e !important;
+}
+[data-theme="light"] .history-info p {
+  color: #0e4252 !important;
+}
+[data-theme="light"] .history-info code {
+  background: #e0f2fe !important;
+  color: #0284c7 !important;
+  border-color: #bae6fd !important;
+}
+[data-theme="light"] .history-material-box {
+  color: #0369a1 !important;
+}
+[data-theme="light"] .history-material-box strong {
+  color: #0f172a !important;
+}
 
 .rejoin-btn {
   padding: 0.45rem 1rem;
@@ -271,6 +333,84 @@
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
+}
+
+/* ─── View / Download Action Buttons (Dark theme: White text, Light theme: Black text) ─── */
+.lecture-action-btn {
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  border: 1px solid transparent !important;
+  font-family: var(--font);
+}
+
+/* DARK MODE: White Text (#ffffff) */
+:root:not([data-theme="light"]) .lecture-action-btn,
+[data-theme="dark"] .lecture-action-btn {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+:root:not([data-theme="light"]) .lecture-action-btn span,
+[data-theme="dark"] .lecture-action-btn span {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+:root:not([data-theme="light"]) .lecture-view-btn,
+[data-theme="dark"] .lecture-view-btn {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4) !important;
+}
+:root:not([data-theme="light"]) .lecture-view-btn:hover,
+[data-theme="dark"] .lecture-view-btn:hover {
+  background: #1d4ed8 !important;
+  transform: translateY(-1px);
+}
+:root:not([data-theme="light"]) .lecture-download-btn,
+[data-theme="dark"] .lecture-download-btn {
+  background: #0284c7 !important;
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4) !important;
+}
+:root:not([data-theme="light"]) .lecture-download-btn:hover,
+[data-theme="dark"] .lecture-download-btn:hover {
+  background: #0369a1 !important;
+  transform: translateY(-1px);
+}
+
+/* LIGHT MODE: Black Text (#000000) */
+[data-theme="light"] .lecture-action-btn {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+[data-theme="light"] .lecture-action-btn span {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+[data-theme="light"] .lecture-view-btn {
+  background: #38bdf8 !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35) !important;
+}
+[data-theme="light"] .lecture-view-btn:hover {
+  background: #0ea5e9 !important;
+  transform: translateY(-1px);
+}
+[data-theme="light"] .lecture-download-btn {
+  background: #67e8f9 !important;
+  border-color: #0891b2 !important;
+  box-shadow: 0 2px 8px rgba(103, 232, 249, 0.35) !important;
+}
+[data-theme="light"] .lecture-download-btn:hover {
+  background: #22d3ee !important;
+  transform: translateY(-1px);
 }
 
 /* ── Role Welcome Banner ── */
@@ -1014,4 +1154,73 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.65rem;
+}
+
+/* ─── Mobile Responsiveness (Smartphones & Tablets) ─── */
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 0.75rem 1rem 3rem;
+  }
+
+  .landing-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+    padding: 0.75rem 0;
+  }
+
+  .landing-nav .logo-container {
+    justify-content: space-between;
+  }
+
+  .role-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .zoom-class-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .room-code-input-row {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .room-code-input-row .dash-input {
+    width: 100%;
+  }
+
+  .invite-modal-card {
+    width: 95vw;
+    max-width: 95vw;
+    padding: 1.25rem 1rem;
+  }
+
+  .invite-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 1rem;
+  }
+
+  .history-item > div:last-child {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .role-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-btn, .room-copy-btn, .rejoin-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }

@@ -45,11 +45,14 @@ const registerUser = async (req, res) => {
     }
 
     // ── Try MongoDB first ──
+    const targetRole = (role === 'instructor') ? 'instructor' : 'student';
     if (isDbConnected()) {
       const User = require('../models/User');
-      const userExists = await User.findOne({ email: cleanEmail });
+      const userExists = await User.findOne({ email: cleanEmail, role: targetRole });
       if (userExists) {
-        return res.status(400).json({ message: 'An account with this email already exists. Please Sign In instead.' });
+        return res.status(400).json({ 
+          message: `An account with this email already exists as a ${targetRole === 'instructor' ? 'Instructor' : 'Student'}. Please Sign In instead.` 
+        });
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -59,7 +62,7 @@ const registerUser = async (req, res) => {
         email: cleanEmail,
         recoveryEmail: cleanRecovery,
         password: hashedPassword,
-        role: role || 'student',
+        role: targetRole,
         lastLogin: new Date()
       });
 
@@ -78,8 +81,12 @@ const registerUser = async (req, res) => {
     }
 
     // ── In-Memory fallback ──
-    const existing = memoryUsers.find(u => u.email === cleanEmail);
-    if (existing) return res.status(400).json({ message: 'User already exists' });
+    const existing = memoryUsers.find(u => u.email === cleanEmail && u.role === targetRole);
+    if (existing) {
+      return res.status(400).json({ 
+        message: `An account with this email already exists as a ${targetRole === 'instructor' ? 'Instructor' : 'Student'}. Please Sign In instead.` 
+      });
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -92,12 +99,12 @@ const registerUser = async (req, res) => {
       email: cleanEmail,
       recoveryEmail: cleanRecovery,
       password: hashedPassword,
-      role: role || 'student',
+      role: targetRole,
       lastLogin: new Date()
     };
     memoryUsers.push(newUser);
 
-    console.log(`📝 [In-Memory] Registered user: ${cleanEmail} as ${role || 'student'}`);
+    console.log(`📝 [In-Memory] Registered user: ${cleanEmail} as ${targetRole}`);
 
     return res.status(201).json({
       _id: fakeId,
@@ -118,7 +125,7 @@ const registerUser = async (req, res) => {
 // ── Login ─────────────────────────────────────────────────────────────────────
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
@@ -129,9 +136,15 @@ const loginUser = async (req, res) => {
     }
 
     // ── Try MongoDB first ──
+    const targetRole = (role === 'instructor') ? 'instructor' : 'student';
     if (isDbConnected()) {
       const User = require('../models/User');
-      const user = await User.findOne({ email: cleanEmail });
+      // Look for the specific role first, else fallback to any user with that email
+      let user = await User.findOne({ email: cleanEmail, role: targetRole });
+      if (!user) {
+        user = await User.findOne({ email: cleanEmail });
+      }
+
       if (!user) {
         return res.status(404).json({
           message: 'No account found with this email. Please switch to "Sign Up" to register.'
@@ -139,9 +152,11 @@ const loginUser = async (req, res) => {
       }
 
       if (await bcrypt.compare(password, user.password)) {
-        // Update lastLogin in MongoDB
-        await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
-        console.log(`✅ [MongoDB] Login: ${cleanEmail} (${user.role}) - lastLogin updated`);
+        // Update role to targetRole and save
+        user.role = targetRole;
+        user.lastLogin = new Date();
+        await user.save();
+        console.log(`✅ [MongoDB] Login: ${cleanEmail} (Active Role: ${user.role}) - saved to DB`);
 
         return res.json({
           _id: user.id,
@@ -158,7 +173,11 @@ const loginUser = async (req, res) => {
     }
 
     // ── In-Memory fallback ──
-    const user = memoryUsers.find(u => u.email === cleanEmail);
+    let user = memoryUsers.find(u => u.email === cleanEmail && u.role === targetRole);
+    if (!user) {
+      user = memoryUsers.find(u => u.email === cleanEmail);
+    }
+
     if (!user) {
       return res.status(404).json({
         message: 'No account found with this email. Please switch to "Sign Up" to register.'
@@ -166,6 +185,7 @@ const loginUser = async (req, res) => {
     }
 
     if (await bcrypt.compare(password, user.password)) {
+      user.role = targetRole;
       console.log(`🔐 [In-Memory] Login: ${cleanEmail} as ${user.role}`);
       return res.json({
         _id: user._id,
