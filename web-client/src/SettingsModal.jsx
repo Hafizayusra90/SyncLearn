@@ -1,4 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
+import {
+  Settings,
+  Video,
+  Headphones,
+  Bell,
+  Disc,
+  MessageSquare,
+  Accessibility,
+  Keyboard,
+  BarChart2,
+  User,
+  Search,
+  X,
+  Camera,
+  Folder,
+  Monitor,
+  HardDrive,
+  Trash2,
+  Play,
+  Square,
+  Download
+} from 'lucide-react';
 import { isValidRealEmail, isValidRealName } from './utils/validation';
 import './SettingsModal.css';
 
@@ -20,9 +42,6 @@ function SettingsModal({
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [saveMessage, setSaveMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-
-  // Appearance & Theme States
-  const [selectedEmojiTone, setSelectedEmojiTone] = useState(0);
 
   // Media Settings
   const [blurSetting, setBlurSetting] = useState(false);
@@ -287,16 +306,16 @@ function SettingsModal({
 
   // Navigation Items matching Image 4/5 ("Meetings & webinars" removed per user request)
   const navItems = [
-    { id: 'general', label: 'General', icon: '⚙️' },
-    { id: 'video', label: 'Video & effects', icon: '📹' },
-    { id: 'audio', label: 'Audio', icon: '🎧' },
-    { id: 'notifications', label: 'Notifications & sounds', icon: '🔔' },
-    { id: 'recording', label: 'Recording', icon: '⏺' },
-    { id: 'chat', label: 'Chat', icon: '💬' },
-    { id: 'accessibility', label: 'Accessibility', icon: '🚶' },
-    { id: 'shortcuts', label: 'Keyboard shortcuts', icon: '⌨' },
-    { id: 'statistics', label: 'Statistics', icon: '📊' },
-    { id: 'account', label: 'My account', icon: '👤' }
+    { id: 'general', label: 'General', icon: <Settings size={16} /> },
+    { id: 'video', label: 'Video & effects', icon: <Video size={16} /> },
+    { id: 'audio', label: 'Audio', icon: <Headphones size={16} /> },
+    { id: 'notifications', label: 'Notifications & sounds', icon: <Bell size={16} /> },
+    { id: 'recording', label: 'Recording', icon: <Disc size={16} /> },
+    { id: 'chat', label: 'Chat', icon: <MessageSquare size={16} /> },
+    { id: 'accessibility', label: 'Accessibility', icon: <Accessibility size={16} /> },
+    { id: 'shortcuts', label: 'Keyboard shortcuts', icon: <Keyboard size={16} /> },
+    { id: 'statistics', label: 'Statistics', icon: <BarChart2 size={16} /> },
+    { id: 'account', label: 'My account', icon: <User size={16} /> }
   ];
 
   const filteredNavItems = navItems.filter(item =>
@@ -308,14 +327,16 @@ function SettingsModal({
       <div className="zoom-settings-dialog" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="zoom-settings-header">
-          <span className="zoom-settings-title">⚙️ Settings</span>
+          <span className="zoom-settings-title">
+            <Settings size={18} /> Settings
+          </span>
           <button
             type="button"
             className="zoom-settings-close-btn"
             onClick={onClose}
             title="Close Settings"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
@@ -333,14 +354,14 @@ function SettingsModal({
               >
                 {navItems.map(item => (
                   <option key={item.id} value={item.id}>
-                    {item.icon} {item.label}
+                    {item.label}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="zoom-settings-search-wrap">
-              <span className="zoom-settings-search-icon">🔍</span>
+              <Search size={14} className="zoom-settings-search-icon" />
               <input
                 type="text"
                 placeholder="Search"
@@ -402,23 +423,6 @@ function SettingsModal({
 
                     </div>
                   </div>
-
-                {/* Emoji Reactions Skin Tone (Image 2) */}
-                <div className="zoom-setting-section-card">
-                  <div className="zoom-section-card-title">Emoji and reactions skin tone</div>
-                  <div className="zoom-emojis-row">
-                    {['👍', '👍🏻', '👍🏼', '👍🏽', '👍🏾', '👍🏿'].map((emoji, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className={`zoom-emoji-btn ${selectedEmojiTone === idx ? 'active' : ''}`}
-                        onClick={() => setSelectedEmojiTone(idx)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -455,7 +459,7 @@ function SettingsModal({
                         className="zoom-btn-upload-photo"
                         onClick={() => fileInputRef.current?.click()}
                       >
-                        📷 Upload Photo
+                        <Camera size={15} /> Upload Photo
                       </button>
 
                       {avatar && (
@@ -464,31 +468,9 @@ function SettingsModal({
                           className="zoom-btn-remove-photo"
                           onClick={() => setAvatar('')}
                         >
-                          🗑️ Remove Photo
+                          <Trash2 size={15} /> Remove Photo
                         </button>
                       )}
-
-                      <div className="zoom-preset-avatars-row">
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Quick:</span>
-                        {[
-                          '🎓', '👩‍💻', '👨‍🏫', '🚀', '🌟', '📚'
-                        ].map((emoji, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            className="zoom-preset-avatar-btn"
-                            onClick={() => {
-                              // SVG canvas generator for preset emoji
-                              const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 100 100"><rect width="100" height="100" fill="#0e71eb"/><text x="50%" y="62%" font-size="52" text-anchor="middle">${emoji}</text></svg>`;
-                              const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-                              setAvatar(dataUri);
-                            }}
-                            title={`Choose ${emoji} avatar`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   </div>
 
@@ -574,7 +556,9 @@ function SettingsModal({
                     {avatar ? (
                       <img src={avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <span>📷 Integrated HD Camera Active</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <Video size={18} /> Integrated HD Camera Active
+                      </span>
                     )}
                   </div>
                 </div>
@@ -624,9 +608,9 @@ function SettingsModal({
                   <button
                     type="button"
                     className="zoom-btn-upload-photo"
-                    onClick={() => alert('🔊 Audio Test Chime Played!')}
+                    onClick={() => alert('Audio Test Chime Played!')}
                   >
-                    🔊 Test Speaker & Microphone
+                    Test Speaker & Microphone
                   </button>
                 </div>
               </div>
@@ -642,10 +626,9 @@ function SettingsModal({
                   <div className="zoom-section-card-title">Volume</div>
                   <div style={{ marginBottom: '6px', fontSize: '0.86rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>Ringtone volume</span>
-                    <span title="Adjust incoming call ringtone volume" style={{ cursor: 'help', color: '#94a3b8' }}>ℹ️</span>
                   </div>
                   <div className="zoom-volume-slider-row">
-                    <span style={{ fontSize: '1rem', color: '#64748b' }}>🔈</span>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Low</span>
                     <input
                       type="range"
                       min="0"
@@ -654,8 +637,8 @@ function SettingsModal({
                       onChange={e => setRingtoneVolume(Number(e.target.value))}
                       className="zoom-range-input"
                     />
-                    <span style={{ fontSize: '1.1rem', color: '#0e71eb' }}>🔊</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, minWidth: '36px', color: '#64748b' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>High</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, minWidth: '36px', color: '#0e71eb' }}>
                       {ringtoneVolume}%
                     </span>
                   </div>
@@ -684,7 +667,7 @@ function SettingsModal({
                         onClick={handleTestRingtone}
                         title="Play test ringtone"
                       >
-                        {isPlayingRingtone ? '⏹️' : '▶'}
+                        {isPlayingRingtone ? <Square size={13} /> : <Play size={13} />}
                       </button>
                     </div>
                   </div>
@@ -758,7 +741,7 @@ function SettingsModal({
                       className={`zoom-destination-card ${saveToPc ? 'active' : ''}`}
                       onClick={() => setSaveToPc(!saveToPc)}
                     >
-                      <div className="zoom-dest-icon">💻</div>
+                      <div className="zoom-dest-icon"><Monitor size={22} /></div>
                       <div className="zoom-dest-info">
                         <div className="zoom-dest-title">1. Download to Computer / PC</div>
                         <div className="zoom-dest-desc">
@@ -780,7 +763,7 @@ function SettingsModal({
                       className={`zoom-destination-card ${saveToApp ? 'active' : ''}`}
                       onClick={() => setSaveToApp(!saveToApp)}
                     >
-                      <div className="zoom-dest-icon">📂</div>
+                      <div className="zoom-dest-icon"><HardDrive size={22} /></div>
                       <div className="zoom-dest-info">
                         <div className="zoom-dest-title">2. Save in Application Library</div>
                         <div className="zoom-dest-desc">
@@ -809,7 +792,7 @@ function SettingsModal({
 
                   <div className="zoom-storage-path-box">
                     <div className="zoom-path-input-group">
-                      <span className="zoom-folder-icon">📁</span>
+                      <span className="zoom-folder-icon"><Folder size={18} /></span>
                       <input
                         type="text"
                         className="zoom-path-text-field"
@@ -820,7 +803,7 @@ function SettingsModal({
                     <button
                       type="button"
                       className="zoom-path-action-btn"
-                      onClick={() => alert(`📂 Storage Folder Location:\n\n${storagePath}\n\nRecordings are safely accessible in this PC folder.`)}
+                      onClick={() => alert(`Storage Folder Location:\n\n${storagePath}\n\nRecordings are safely accessible in this PC folder.`)}
                     >
                       Open
                     </button>
@@ -837,7 +820,7 @@ function SettingsModal({
                   </div>
 
                   <div className="zoom-disk-space-text">
-                    💾 20.2 GB remaining
+                    20.2 GB remaining
                   </div>
 
                   <div className="zoom-toggle-row" style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9' }}>
@@ -917,14 +900,14 @@ function SettingsModal({
                   <div className="zoom-recordings-list">
                     {savedRecordingsList.map(rec => (
                       <div key={rec.id} className="zoom-recording-item-card">
-                        <div className="zoom-rec-icon">🎬</div>
+                        <div className="zoom-rec-icon"><Video size={18} /></div>
                         <div className="zoom-rec-info">
                           <div className="zoom-rec-title">{rec.title}</div>
                           <div className="zoom-rec-meta">
-                            <span>🆔 Room: {rec.roomId}</span>
-                            <span>📅 {rec.date}</span>
-                            <span>⏱️ {rec.duration}</span>
-                            <span>💾 {rec.size}</span>
+                            <span>Room: {rec.roomId}</span>
+                            <span>Date: {rec.date}</span>
+                            <span>Duration: {rec.duration}</span>
+                            <span>Size: {rec.size}</span>
                           </div>
                         </div>
                         <div className="zoom-rec-actions">
@@ -934,7 +917,7 @@ function SettingsModal({
                             onClick={() => setActivePlaybackRec(rec)}
                             title="Play inside App"
                           >
-                            ▶ Watch in App
+                            <Play size={13} /> Watch in App
                           </button>
                           <button
                             type="button"
@@ -942,7 +925,7 @@ function SettingsModal({
                             onClick={() => handleDownloadSavedRecording(rec)}
                             title="Download to PC"
                           >
-                            ⬇ PC Download
+                            <Download size={13} /> PC Download
                           </button>
                           <button
                             type="button"
@@ -950,7 +933,7 @@ function SettingsModal({
                             onClick={() => handleDeleteSavedRecording(rec.id)}
                             title="Delete"
                           >
-                            🗑️
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </div>
@@ -963,19 +946,18 @@ function SettingsModal({
                   <div className="zoom-video-player-modal" onClick={() => setActivePlaybackRec(null)}>
                     <div className="zoom-video-player-box" onClick={e => e.stopPropagation()}>
                       <div className="zoom-video-player-header">
-                        <span>🎬 In-App Video Player: {activePlaybackRec.title}</span>
-                        <button type="button" onClick={() => setActivePlaybackRec(null)}>✕</button>
+                        <span>In-App Video Player: {activePlaybackRec.title}</span>
+                        <button type="button" onClick={() => setActivePlaybackRec(null)}><X size={16} /></button>
                       </div>
                       <div className="zoom-video-screen">
                         {activePlaybackRec.url ? (
                           <video src={activePlaybackRec.url} controls autoPlay style={{ width: '100%', height: '340px' }} />
                         ) : (
                           <div className="zoom-simulated-video">
-                            <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🎓</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>SyncLearn Recorded Lecture</div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}>SyncLearn Recorded Lecture</div>
                             <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>Playing directly inside application without external player</div>
                             <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-                              <span className="badge">⏱️ {activePlaybackRec.duration}</span>
+                              <span className="badge">Duration: {activePlaybackRec.duration}</span>
                               <span className="badge">1080p HD</span>
                               <span className="badge">Opus Audio</span>
                             </div>
