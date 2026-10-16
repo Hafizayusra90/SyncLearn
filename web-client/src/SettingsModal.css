@@ -1226,3 +1226,351 @@
   border-color: #52525b;
   color: #f1f5f9;
 }
+
+/* ── Mobile Category Selector (Hidden on Desktop) ── */
+.zoom-mobile-cat-select-wrap {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS (<= 768px)
+   Transforms crowded 2-column layout into an intuitive mobile UI
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .zoom-settings-overlay {
+    padding: 8px !important;
+  }
+
+  .zoom-settings-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 94vh !important;
+    max-height: 94vh !important;
+    border-radius: 14px !important;
+    margin: auto !important;
+  }
+
+  .zoom-settings-header {
+    padding: 10px 14px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .zoom-settings-title {
+    font-size: 1rem !important;
+  }
+
+  .zoom-settings-close-btn {
+    font-size: 1.3rem !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Switch layout from 2-column to vertical stack */
+  .zoom-settings-layout {
+    flex-direction: column !important;
+    flex: 1 !important;
+    height: calc(100% - 48px) !important;
+    overflow: hidden !important;
+  }
+
+  /* Top Category Bar on Mobile */
+  .zoom-settings-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    padding: 8px 10px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+    background: #f8fafc !important;
+  }
+
+  [data-theme="dark"] .zoom-settings-sidebar {
+    background: #1f1f23 !important;
+    border-bottom-color: #2e2e33 !important;
+  }
+
+  /* Show mobile quick category dropdown selector */
+  .zoom-mobile-cat-select-wrap {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-mobile-cat-label {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  [data-theme="dark"] .zoom-mobile-cat-label {
+    color: #94a3b8 !important;
+  }
+
+  .zoom-mobile-cat-select {
+    flex: 1 !important;
+    padding: 7px 12px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid #0e71eb !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    outline: none !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  [data-theme="dark"] .zoom-mobile-cat-select {
+    background: #27272a !important;
+    color: #f8fafc !important;
+    border-color: #38bdf8 !important;
+  }
+
+  /* Hide search input on mobile to keep category header neat */
+  .zoom-settings-search-wrap {
+    display: none !important;
+  }
+
+  /* Horizontal swipeable category pills bar */
+  .zoom-settings-nav-list {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 6px !important;
+    padding: 2px 0 4px !important;
+    scrollbar-width: none !important;
+  }
+
+  .zoom-settings-nav-list::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .zoom-settings-nav-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 6px 12px !important;
+    font-size: 0.78rem !important;
+    border-radius: 16px !important;
+    background: #e2e8f0 !important;
+    color: #334155 !important;
+    border: 1px solid transparent !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    touch-action: pan-x !important;
+  }
+
+  [data-theme="dark"] .zoom-settings-nav-btn {
+    background: #27272a !important;
+    color: #cbd5e1 !important;
+  }
+
+  .zoom-settings-nav-btn.active {
+    background: #0e71eb !important;
+    color: #ffffff !important;
+    border-color: #38bdf8 !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(14, 113, 235, 0.45) !important;
+  }
+
+  [data-theme="dark"] .zoom-settings-nav-btn.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border-color: #38bdf8 !important;
+  }
+
+  .zoom-nav-icon {
+    font-size: 0.95rem !important;
+    width: auto !important;
+  }
+
+  /* Full Width Content Panel on Mobile */
+  .zoom-settings-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 !important;
+    padding: 14px 12px 24px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-content-header {
+    font-size: 1.12rem !important;
+    margin: 0 0 12px !important;
+  }
+
+  .zoom-setting-section-card {
+    padding: 12px 10px !important;
+    margin-bottom: 12px !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-section-card-title {
+    font-size: 0.9rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* ── 1. General Tab Mobile: Color Modes & Emojis ── */
+  .zoom-color-modes-grid {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .zoom-color-mode-card {
+    padding: 6px !important;
+  }
+
+  .zoom-mode-preview-box {
+    height: 52px !important;
+  }
+
+  .zoom-mode-card-label {
+    font-size: 0.78rem !important;
+  }
+
+  .zoom-emojis-row {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .zoom-emoji-btn {
+    font-size: 1.3rem !important;
+    padding: 4px 6px !important;
+  }
+
+  /* ── 2. Account Profile Tab Mobile ── */
+  .zoom-profile-header-area {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+  }
+
+  .zoom-profile-avatar-large,
+  .zoom-profile-avatar-placeholder {
+    width: 80px !important;
+    height: 80px !important;
+  }
+
+  .zoom-profile-actions {
+    align-items: center !important;
+    width: 100% !important;
+  }
+
+  .zoom-preset-avatars-row {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+
+  .zoom-form-row {
+    width: 100% !important;
+  }
+
+  .zoom-form-input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-save-profile-btn {
+    width: 100% !important;
+  }
+
+  /* ── 3. Sound & Notifications Tab Mobile ── */
+  .zoom-volume-slider-row {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-ringtone-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .zoom-ringtone-row > div {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  /* ── 4. Recording Tab Mobile ── */
+  .zoom-destinations-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .zoom-destination-card {
+    padding: 12px 10px !important;
+    gap: 10px !important;
+  }
+
+  .zoom-dest-icon {
+    font-size: 1.4rem !important;
+  }
+
+  .zoom-storage-path-box {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .zoom-path-input-group {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .zoom-path-action-btn {
+    width: 100% !important;
+    padding: 8px 12px !important;
+  }
+
+  .zoom-recording-item-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .zoom-rec-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .zoom-rec-btn-play,
+  .zoom-rec-btn-download {
+    flex: 1 !important;
+    text-align: center !important;
+  }
+
+  /* ── 5. Accessibility Tab Mobile ── */
+  .zoom-caption-swatches-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+    max-width: 100% !important;
+  }
+
+  /* ── 6. Keyboard Shortcuts & Statistics Mobile ── */
+  .zoom-shortcut-row {
+    font-size: 0.78rem !important;
+    gap: 6px !important;
+    padding: 7px 8px !important;
+  }
+
+  .zoom-kbd {
+    font-size: 0.75rem !important;
+    padding: 2px 6px !important;
+  }
+}

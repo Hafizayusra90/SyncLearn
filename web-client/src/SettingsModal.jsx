@@ -70,6 +70,7 @@ function SettingsModal({
   const [captionFontType, setCaptionFontType] = useState('Arial');
 
   const fileInputRef = useRef(null);
+  const navListRef = useRef(null);
 
   // Sync user state when opened or user prop changes
   useEffect(() => {
@@ -85,6 +86,16 @@ function SettingsModal({
       setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
+
+  // Auto-scroll active tab into view in mobile category bar
+  useEffect(() => {
+    if (navListRef.current) {
+      const activeBtn = navListRef.current.querySelector('.zoom-settings-nav-btn.active');
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [activeTab]);
 
   // Persist Recording Preferences to localStorage
   useEffect(() => {
@@ -312,6 +323,22 @@ function SettingsModal({
         <div className="zoom-settings-layout">
           {/* Left Sidebar (Matching Image 2) */}
           <aside className="zoom-settings-sidebar">
+            {/* Mobile Category Dropdown Selector (Active on phone screens) */}
+            <div className="zoom-mobile-cat-select-wrap">
+              <span className="zoom-mobile-cat-label">Section:</span>
+              <select
+                className="zoom-mobile-cat-select"
+                value={activeTab}
+                onChange={e => setActiveTab(e.target.value)}
+              >
+                {navItems.map(item => (
+                  <option key={item.id} value={item.id}>
+                    {item.icon} {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="zoom-settings-search-wrap">
               <span className="zoom-settings-search-icon">🔍</span>
               <input
@@ -323,7 +350,7 @@ function SettingsModal({
               />
             </div>
 
-            <nav className="zoom-settings-nav-list">
+            <nav ref={navListRef} className="zoom-settings-nav-list">
               {filteredNavItems.map(item => (
                 <button
                   key={item.id}
