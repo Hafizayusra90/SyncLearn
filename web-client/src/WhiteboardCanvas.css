@@ -867,74 +867,191 @@
   padding: 4px;
 }
 
-/* ─── Mobile Responsiveness for Whiteboard & Typing Pad ─── */
+/* ══════════════════════════════════════════════════════════════════════
+   📱 Mobile Tab Bar & Responsive Whiteboard Architecture
+   ══════════════════════════════════════════════════════════════════════ */
+.wb-mobile-tab-bar {
+  display: none;
+  width: 100%;
+  background: rgba(4, 18, 36, 0.95);
+  border-bottom: 1.5px solid rgba(56, 189, 248, 0.28);
+  padding: 6px 8px;
+  gap: 6px;
+  box-sizing: border-box;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.wb-mobile-tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 7px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(10, 30, 54, 0.6);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.wb-mobile-tab-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.45);
+}
+
+.wb-role-pill {
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fef08a;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+/* ─── Mobile Viewport Rules (< 768px) ─── */
 @media (max-width: 768px) {
   .whiteboard-wrapper {
     width: 100% !important;
     max-width: 100% !important;
+    height: 100% !important;
+    flex: 1 !important;
     box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  /* Show mobile tab switcher so user can toggle Canvas vs Notes */
+  .wb-mobile-tab-bar {
+    display: flex !important;
   }
 
   .wb-split-workspace {
     flex-direction: column !important;
-    height: auto !important;
-    min-height: 480px !important;
+    width: 100% !important;
+    height: calc(100% - 46px) !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* When Canvas tab is active on mobile: 100% screen to Canvas! */
+  .wb-split-workspace.mobile-canvas .wb-typing-panel {
+    display: none !important;
+  }
+
+  .wb-split-workspace.mobile-canvas .wb-canvas-viewport {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  /* When Notes tab is active on mobile: 100% screen to Notes! */
+  .wb-split-workspace.mobile-notes .wb-canvas-viewport {
+    display: none !important;
+  }
+
+  .wb-split-workspace.mobile-notes .wb-typing-panel {
+    display: flex !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 !important;
+    border-right: none !important;
+    padding: 10px !important;
+    box-sizing: border-box !important;
     overflow-y: auto !important;
   }
 
-  .wb-typing-panel {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    height: 240px !important;
-    min-height: 200px !important;
-    border-right: none !important;
-    border-bottom: 1.5px solid rgba(56, 189, 248, 0.3) !important;
-    box-sizing: border-box !important;
-    padding: 10px !important;
-  }
-
-  .wb-canvas-viewport {
-    width: 100% !important;
-    min-width: 0 !important;
-    height: 320px !important;
-    min-height: 300px !important;
-    box-sizing: border-box !important;
-    position: relative !important;
-  }
-
+  /* Mobile Floating Toolbar Container */
   .wb-top-container {
-    left: 4px !important;
-    right: 4px !important;
-    top: 4px !important;
-    max-width: calc(100% - 8px) !important;
-    overflow-x: auto !important;
-    padding-bottom: 4px !important;
-    gap: 4px !important;
-    flex-wrap: nowrap !important;
-    -webkit-overflow-scrolling: touch !important;
+    left: 6px !important;
+    right: 6px !important;
+    top: 6px !important;
+    max-width: calc(100% - 12px) !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    pointer-events: auto !important;
+    z-index: 1000 !important;
+    gap: 6px !important;
+  }
+
+  .wb-top-left-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
   }
 
   .wb-brand-title {
-    padding: 3px 6px !important;
-    font-size: 0.7rem !important;
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
   }
 
-  .wb-tools-trigger-btn,
-  .wb-btn {
-    padding: 4px 7px !important;
-    font-size: 0.7rem !important;
-  }
-
-  .wb-actions-bar {
-    padding: 3px 6px !important;
+  /* Prominent Glowing "Tools ∨" Button on Mobile */
+  .wb-tools-trigger-btn {
+    padding: 5px 11px !important;
+    font-size: 0.76rem !important;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    border: 1.5px solid #38bdf8 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
     gap: 4px !important;
   }
 
+  /* Mobile Tools Dropdown: Centered Modal Dialog with Blur Backdrop */
   .wb-tools-dropdown-panel {
-    left: 0 !important;
-    width: calc(100vw - 20px) !important;
-    max-width: 320px !important;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90vw !important;
+    max-width: 330px !important;
+    max-height: 82vh !important;
+    overflow-y: auto !important;
+    z-index: 999999 !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 229, 255, 0.3) !important;
+    background: linear-gradient(180deg, #0a1f38 0%, #051426 100%) !important;
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  .wb-panel-btn {
+    padding: 9px 8px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .wb-color-circle {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .wb-actions-bar {
+    padding: 0 !important;
+    gap: 4px !important;
+  }
+
+  .wb-actions-bar .wb-btn {
+    padding: 4px 7px !important;
+    font-size: 0.68rem !important;
   }
 }
 

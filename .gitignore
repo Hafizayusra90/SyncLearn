@@ -31,3 +31,7 @@ Thumbs.db
 # Uploaded Files
 signaling-server/uploads/*
 !signaling-server/uploads/.gitkeep
+
+# Executables & Binaries
+*.exe
+cloudflared.exe

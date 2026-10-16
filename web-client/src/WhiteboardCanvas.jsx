@@ -32,6 +32,7 @@ function WhiteboardCanvas({ roomId, user }) {
 
   // Dual Mode (Typing Pad + Whiteboard Canvas)
   const [isDualMode, setIsDualMode] = useState(true);
+  const [activeMobileWbTab, setActiveMobileWbTab] = useState('canvas'); // 'canvas' | 'notes'
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [typedNotes, setTypedNotes] = useState("Welcome students to today's live session!");
   const [typingFontSize, setTypingFontSize] = useState(20);
@@ -441,9 +442,6 @@ function WhiteboardCanvas({ roomId, user }) {
   };
 
   const startDrawing = (e) => {
-    // Only instructor can write on whiteboard
-    if (!isInstructor) return;
-
     const { x, y } = getPos(e);
 
     if (tool === TOOLS.LASER) {
@@ -732,8 +730,26 @@ function WhiteboardCanvas({ roomId, user }) {
 
   return (
     <div className="whiteboard-wrapper">
+      {/* Mobile Tab Switcher: Instantly switch between Canvas & Notes on phone */}
+      <div className="wb-mobile-tab-bar">
+        <button
+          type="button"
+          className={`wb-mobile-tab-btn ${activeMobileWbTab === 'canvas' ? 'active' : ''}`}
+          onClick={() => setActiveMobileWbTab('canvas')}
+        >
+          🎨 Whiteboard Canvas
+        </button>
+        <button
+          type="button"
+          className={`wb-mobile-tab-btn ${activeMobileWbTab === 'notes' ? 'active' : ''}`}
+          onClick={() => setActiveMobileWbTab('notes')}
+        >
+          📝 Notes Pad
+        </button>
+      </div>
+
       {/* ─── Main Workspace: Dual Split (Typing Pad on Left, Canvas on Right) ─── */}
-      <div className={`wb-split-workspace ${isDualMode ? 'dual-active' : ''}`}>
+      <div className={`wb-split-workspace ${isDualMode ? 'dual-active' : ''} mobile-${activeMobileWbTab}`}>
         {/* Left Pane: Keyboard Typing Studio */}
         {isDualMode && (
           <aside className="wb-typing-panel">
@@ -887,18 +903,18 @@ function WhiteboardCanvas({ roomId, user }) {
                 <span className="wb-brand-text">Whiteboard</span>
               </div>
 
-              {isInstructor ? (
-                <div className="wb-tools-dropdown-container">
-                  {/* Clean "Tools ∨" Button Matching Reference Image */}
-                  <button
-                    type="button"
-                    className={`wb-tools-trigger-btn ${isToolsMenuOpen ? 'open' : ''}`}
-                    onClick={() => setIsToolsMenuOpen(prev => !prev)}
-                    title="Whiteboard Tools"
-                  >
-                    <span className="wb-tools-text">Tools</span>
-                    <span className="wb-tools-chevron">∨</span>
-                  </button>
+              {/* Whiteboard Tools (Available for ALL participants on desktop & mobile) */}
+              <div className="wb-tools-dropdown-container">
+                <button
+                  type="button"
+                  className={`wb-tools-trigger-btn ${isToolsMenuOpen ? 'open' : ''}`}
+                  onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                  title="Whiteboard Drawing & Format Tools"
+                >
+                  <span className="wb-tools-icon">🛠️</span>
+                  <span className="wb-tools-text">Tools</span>
+                  <span className="wb-tools-chevron">∨</span>
+                </button>
 
                 {/* Floating Dropdown Card Containing All Whiteboard Controls */}
                 {isToolsMenuOpen && (
@@ -1037,12 +1053,6 @@ function WhiteboardCanvas({ roomId, user }) {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="wb-student-sync-pill">
-                <span className="wb-pulse-dot"></span>
-                <span>Teacher Synced (Live)</span>
-              </div>
-            )}
             </div>
 
             {/* Right Action Bar (Download) */}
@@ -1080,7 +1090,7 @@ function WhiteboardCanvas({ roomId, user }) {
               background: '#0a0f1e',
               width: '100%',
               height: '100%',
-              cursor: !isInstructor ? 'default' : tool === TOOLS.ERASER ? 'cell' : tool === TOOLS.LASER ? 'none' : 'crosshair',
+              cursor: tool === TOOLS.ERASER ? 'cell' : tool === TOOLS.LASER ? 'none' : 'crosshair',
               touchAction: 'none',
             }}
           />

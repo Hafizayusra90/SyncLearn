@@ -3925,8 +3925,17 @@
   .canvas-area {
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 380px !important;
+    min-height: 460px !important;
+    height: 500px !important;
+    display: flex !important;
+    flex-direction: column !important;
     box-sizing: border-box !important;
+    position: relative !important;
+  }
+
+  .canvas-area.full-view {
+    min-height: calc(100vh - 165px) !important;
+    height: calc(100vh - 165px) !important;
   }
 
   /* ── 9. Footer Toolbar on Mobile: Horizontal Scroll & Touch Friendly ── */
