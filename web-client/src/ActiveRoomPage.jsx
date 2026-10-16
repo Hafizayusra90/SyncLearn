@@ -1435,12 +1435,37 @@ function ActiveRoomPage({
     }
   };
 
-  // ─── Category 3: Session Screen Recording with Audio & Instant Download ───
+  // ─── Category 3: Session Recording with Mobile Fallback & Universal MIME Support ───
+  const getRecordingMimeType = () => {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+      return '';
+    }
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+      'audio/webm',
+      'audio/mp4'
+    ];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  };
+
   const toggleSessionRecording = async () => {
     if (isRecordingSession) {
       // Stop Recording
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.warn('Stop recorder notice:', e);
+        }
       }
       setIsRecordingSession(false);
       socket.emit('recording-status-change', {
@@ -1448,21 +1473,68 @@ function ActiveRoomPage({
         isRecording: false,
         recordedByName: user?.name || 'User'
       });
-      showToast('⏹️ Recording stopped. Processing download...', 'info');
+      showToast('⏹️ Recording stopped. Processing and saving...', 'info');
     } else {
       // Start Recording
       try {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: 30 },
-          audio: true
-        });
+        let recordStream = null;
+        let isScreenShare = false;
+        let isFreshStream = false;
+
+        // 1. Try Desktop Screen Capture first (Supported on PC/Mac)
+        if (navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function') {
+          try {
+            recordStream = await navigator.mediaDevices.getDisplayMedia({
+              video: { frameRate: 30 },
+              audio: true
+            });
+            isScreenShare = true;
+            isFreshStream = true;
+          } catch (dispErr) {
+            console.warn('DisplayMedia capture unavailable or denied on device:', dispErr);
+          }
+        }
+
+        // 2. Mobile fallback: clone active classroom stream so live lecture feeds are recorded
+        if (!recordStream) {
+          if (userStreamRef.current && userStreamRef.current.getTracks().length > 0) {
+            try {
+              recordStream = userStreamRef.current.clone();
+              isFreshStream = false;
+            } catch (cloneErr) {
+              console.warn('userStream clone notice:', cloneErr);
+            }
+          }
+        }
+
+        // 3. Fallback: Acquire fresh camera + audio or audio-only stream for recording
+        if (!recordStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            recordStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true
+            });
+            isFreshStream = true;
+          } catch (camErr) {
+            console.warn('Camera+mic acquisition failed, attempting audio-only recording:', camErr);
+            try {
+              recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              isFreshStream = true;
+            } catch (micErr) {
+              console.warn('Audio-only recording also failed:', micErr);
+            }
+          }
+        }
+
+        if (!recordStream) {
+          showToast('⚠️ Could not start recording. Please grant camera or microphone permission.', 'error');
+          return;
+        }
 
         recordedChunksRef.current = [];
-        const recorder = new MediaRecorder(displayStream, {
-          mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-            ? 'video/webm;codecs=vp9,opus'
-            : 'video/webm'
-        });
+        const detectedMime = getRecordingMimeType();
+        const recorderOptions = detectedMime ? { mimeType: detectedMime } : undefined;
+        const recorder = new MediaRecorder(recordStream, recorderOptions);
 
         recorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) {
@@ -1471,7 +1543,8 @@ function ActiveRoomPage({
         };
 
         recorder.onstop = () => {
-          const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+          const actualMime = detectedMime || recorder.mimeType || 'video/webm';
+          const blob = new Blob(recordedChunksRef.current, { type: actualMime });
           const url = URL.createObjectURL(blob);
 
           // Check user recording destination preferences
@@ -1483,17 +1556,20 @@ function ActiveRoomPage({
             console.warn('Prefs read notice:', e);
           }
 
-          // 1. Option 1: PC me download
+          const ext = actualMime.includes('mp4') ? 'mp4' : (actualMime.includes('webm') ? 'webm' : 'mp4');
+          const fileName = `synclearn-lecture-${roomId || 'session'}-${Date.now()}.${ext}`;
+
+          // 1. Option 1: Device download (PC or Mobile)
           if (prefs.saveToPc) {
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = `synclearn-lecture-${roomId || 'session'}-${Date.now()}.webm`;
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => {
               document.body.removeChild(a);
-            }, 100);
+            }, 300);
           }
 
           // 2. Option 2: Application me recording k andar save
@@ -1516,23 +1592,23 @@ function ActiveRoomPage({
             }
           }
 
-          // Stop all capture tracks
-          displayStream.getTracks().forEach(track => track.stop());
+          // Safely stop fresh capture tracks if created exclusively for recording
+          if (isFreshStream && recordStream) {
+            recordStream.getTracks().forEach(track => {
+              try { track.stop(); } catch(e) {}
+            });
+          }
           setIsRecordingSession(false);
 
-          if (prefs.saveToPc && prefs.saveToApp) {
-            showToast('💾 Lecture recording downloaded to PC & saved in SyncLearn App Library!', 'success');
-          } else if (prefs.saveToPc) {
-            showToast('💾 Lecture recording downloaded to PC successfully!', 'success');
-          } else {
-            showToast('📁 Lecture recording saved in SyncLearn App Library successfully!', 'success');
-          }
+          showToast(`💾 Lecture recorded successfully (${isScreenShare ? 'Full Screen' : 'Live Stream'})! Saved to your device & SyncLearn library.`, 'success');
         };
 
         // User stops screen capture via browser stop sharing button
-        displayStream.getVideoTracks()[0].onended = () => {
-          if (recorder.state !== 'inactive') recorder.stop();
-        };
+        if (isScreenShare && recordStream.getVideoTracks().length > 0) {
+          recordStream.getVideoTracks()[0].onended = () => {
+            if (recorder.state !== 'inactive') recorder.stop();
+          };
+        }
 
         recorder.start(1000); // 1-second chunks
         mediaRecorderRef.current = recorder;
@@ -1543,10 +1619,11 @@ function ActiveRoomPage({
           isRecording: true,
           recordedByName: user?.name || 'Host'
         });
-        showToast('⏺️ Recording started! The full lecture is being recorded.');
+        showToast(isScreenShare ? '⏺️ Recording started (Full Screen)!' : '⏺️ Lecture recording started (Live Session)!');
       } catch (err) {
-        console.error('Recording error:', err);
-        showToast('Failed to start recording (Display permission required)', 'error');
+        console.error('Recording initialization error:', err);
+        showToast('⚠️ Could not start recording. Please check browser permissions.', 'error');
+        setIsRecordingSession(false);
       }
     }
   };

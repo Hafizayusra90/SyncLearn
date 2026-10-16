@@ -19,23 +19,27 @@ function LandingPage({ onNavigate, onEnterWorkspace, theme, onToggleTheme }) {
         </div>
 
         <div className="nav-links">
-          <a className="nav-link" href="#features" onClick={e => { e.preventDefault(); onNavigate && onNavigate('features'); }}>
-            Features
-          </a>
-          <a className="nav-link" href="#about" onClick={e => { e.preventDefault(); onNavigate && onNavigate('about'); }}>
-            Our Vision
-          </a>
-          <button className="primary-btn" onClick={onEnterWorkspace}>
-            Enter Workspace →
-          </button>
-          <button
-            className="theme-icon-btn"
-            onClick={onToggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode ☀️' : 'Switch to Dark Mode 🌙'}
-            aria-label="Toggle Theme"
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
+          <div className="nav-links-left">
+            <a className="nav-link" href="#features" onClick={e => { e.preventDefault(); onNavigate && onNavigate('features'); }}>
+              Features
+            </a>
+            <a className="nav-link" href="#about" onClick={e => { e.preventDefault(); onNavigate && onNavigate('about'); }}>
+              Our Vision
+            </a>
+          </div>
+          <div className="nav-links-right">
+            <button className="primary-btn" onClick={onEnterWorkspace}>
+              Enter Workspace →
+            </button>
+            <button
+              className="theme-icon-btn"
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode ☀️' : 'Switch to Dark Mode 🌙'}
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+          </div>
         </div>
       </nav>
 
