@@ -4037,8 +4037,69 @@
   }
 
   .chat-container {
-    height: calc(100vh - 120px) !important;
-    height: calc(100dvh - 120px) !important;
+    height: calc(100vh - 56px) !important;
+    height: calc(100dvh - 56px) !important;
+  }
+
+  /* ── 11. Mobile Gemini Coach & Chat Polish ── */
+  .sidebar-panel .ai-tutor-container,
+  .sidebar-panel .gemini-coach-container {
+    height: calc(100vh - 56px) !important;
+    height: calc(100dvh - 56px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .gemini-slim-topic-bar {
+    padding: 6px 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .gemini-slim-topic-text {
+    max-width: 140px !important;
+    font-size: 0.72rem !important;
+  }
+
+  .gemini-messages-list {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .gemini-bubble {
+    max-width: 94% !important;
+    font-size: 0.8rem !important;
+    padding: 8px 10px !important;
+  }
+
+  .gemini-bubble.user {
+    max-width: 88% !important;
+  }
+
+  .gemini-input-container {
+    padding: 6px 8px !important;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 8px)) !important;
+    gap: 6px !important;
+  }
+
+  .gemini-popup-overlay {
+    padding: 0.75rem !important;
+  }
+
+  .gemini-popup-card {
+    width: 95vw !important;
+    max-width: 340px !important;
+  }
+
+  .gemini-popup-chip-item {
+    padding: 8px 10px !important;
+    font-size: 0.74rem !important;
   }
 
   .zoom-meeting-info-flyout.footer-flyout {
