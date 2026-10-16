@@ -8,6 +8,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.global = window;
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      window.process.nextTick = window.process.nextTick || function(fn, ...args) {
+        return setTimeout(() => fn(...args), 0);
+      };
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

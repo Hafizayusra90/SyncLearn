@@ -867,3 +867,75 @@
   padding: 4px;
 }
 
+/* ─── Mobile Responsiveness for Whiteboard & Typing Pad ─── */
+@media (max-width: 768px) {
+  .whiteboard-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .wb-split-workspace {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 480px !important;
+    overflow-y: auto !important;
+  }
+
+  .wb-typing-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 240px !important;
+    min-height: 200px !important;
+    border-right: none !important;
+    border-bottom: 1.5px solid rgba(56, 189, 248, 0.3) !important;
+    box-sizing: border-box !important;
+    padding: 10px !important;
+  }
+
+  .wb-canvas-viewport {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 320px !important;
+    min-height: 300px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+  }
+
+  .wb-top-container {
+    left: 4px !important;
+    right: 4px !important;
+    top: 4px !important;
+    max-width: calc(100% - 8px) !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .wb-brand-title {
+    padding: 3px 6px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .wb-tools-trigger-btn,
+  .wb-btn {
+    padding: 4px 7px !important;
+    font-size: 0.7rem !important;
+  }
+
+  .wb-actions-bar {
+    padding: 3px 6px !important;
+    gap: 4px !important;
+  }
+
+  .wb-tools-dropdown-panel {
+    left: 0 !important;
+    width: calc(100vw - 20px) !important;
+    max-width: 320px !important;
+  }
+}
+
+

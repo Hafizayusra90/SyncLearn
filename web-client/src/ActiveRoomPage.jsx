@@ -1996,6 +1996,17 @@ function ActiveRoomPage({
       {/* ── Header ── */}
       <header className="room-header">
         <div className="room-info">
+          {/* Mobile Menu Toggle Button */}
+          <button
+            type="button"
+            className="mobile-sidebar-toggle-btn"
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            title="Toggle Classroom Tools Menu"
+            aria-label="Toggle Classroom Tools"
+          >
+            ☰
+          </button>
+
           <h2 className="room-header-title">
             <img src="/logo.png" alt="SyncLearn" className="room-header-logo" />
             <span className="room-label">Classroom</span>
@@ -2115,6 +2126,15 @@ function ActiveRoomPage({
 
       {/* ── Body ── */}
       <div className={`room-body ${activeTab ? 'sidebar-open' : 'sidebar-closed'} ${isSidebarCollapsed ? 'left-dock-collapsed' : 'left-dock-expanded'} sidebar-${panelSizeMode}`}>
+        {/* Mobile Backdrop to close drawer when tapping outside */}
+        {!isSidebarCollapsed && (
+          <div
+            className="studio-dock-mobile-backdrop"
+            onClick={() => setIsSidebarCollapsed(true)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* ── Left Collapsible Navigation Dock (Matching Images 1, 2, 3) ── */}
         <aside className={`studio-dock-sidebar ${isSidebarCollapsed ? 'collapsed' : 'expanded'}`}>
           {/* Header with 3 Lines Hamburger Menu Button (Image 3) */}
@@ -2140,10 +2160,21 @@ function ActiveRoomPage({
               </span>
             </button>
             {!isSidebarCollapsed && (
-              <div className="sidebar-brand-title">
-                <span className="brand-dot"></span>
-                <span className="brand-text">Classroom Studio</span>
-              </div>
+              <>
+                <div className="sidebar-brand-title">
+                  <span className="brand-dot"></span>
+                  <span className="brand-text">Classroom Studio</span>
+                </div>
+                <button
+                  type="button"
+                  className="sidebar-mobile-close-btn"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  title="Close Menu (✕)"
+                  aria-label="Close Menu"
+                >
+                  ✕
+                </button>
+              </>
             )}
           </div>
 

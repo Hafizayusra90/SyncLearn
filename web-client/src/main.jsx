@@ -1,4 +1,10 @@
 window.global = window;
+window.process = window.process || {};
+window.process.env = window.process.env || {};
+window.process.nextTick = window.process.nextTick || ((fn, ...args) => setTimeout(() => fn(...args), 0));
+
+import { Buffer } from 'buffer';
+window.Buffer = window.Buffer || Buffer;
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
