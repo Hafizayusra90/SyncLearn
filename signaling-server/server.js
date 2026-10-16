@@ -8,6 +8,7 @@ const connectDB = require('./config/db');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 const path = require('path');
 const app = express();
@@ -22,6 +23,7 @@ connectDB();
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/rooms', roomRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // Database Health & Live Status Check
 app.get('/api/v1/db-status', async (req, res) => {

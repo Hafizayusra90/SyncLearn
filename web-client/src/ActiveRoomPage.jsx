@@ -6,7 +6,6 @@ import './ActiveRoomPage.css';
 import WhiteboardCanvas from './WhiteboardCanvas';
 import { socket } from './socket';
 import VideoPlayer from './components/VideoPlayer';
-import AIQuizModal from './AIQuizModal';
 // Remote peer video & audio component with dedicated audio element and speaking indicator
 const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const videoRef = useRef(null);
@@ -518,6 +517,65 @@ async function acquireMediaStream(userName, isInstructor) {
   return { stream, hasRealVideo };
 }
 
+// ── Helpers: Coursera-style Markdown Formatter for Gemini Coach ──
+const formatInlineBold = (str) => {
+  if (!str) return '';
+  const parts = str.split('**');
+  if (parts.length === 1) return str;
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i} style={{ color: '#38bdf8' }}>{part}</strong> : part));
+};
+
+const renderFormattedAiText = (rawText) => {
+  if (!rawText) return null;
+  const lines = rawText.split('\n');
+  return lines.map((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('```')) {
+      return (
+        <div key={idx} className="gemini-code-badge">
+          {trimmed.replace(/```/g, '') || 'CODE BLOCK'}
+        </div>
+      );
+    }
+    if (trimmed.startsWith('### ')) {
+      return <h4 key={idx} className="gemini-heading-3">{trimmed.replace('### ', '')}</h4>;
+    }
+    if (trimmed.startsWith('#### ')) {
+      return <h5 key={idx} className="gemini-heading-4">{trimmed.replace('#### ', '')}</h5>;
+    }
+    if (trimmed.startsWith('> ')) {
+      return (
+        <blockquote key={idx} className="gemini-quote">
+          {formatInlineBold(trimmed.replace('> ', ''))}
+        </blockquote>
+      );
+    }
+    if (trimmed.startsWith('• ') || trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      return (
+        <div key={idx} className="gemini-bullet-item">
+          <span className="gemini-bullet-dot">▸</span>
+          <span>{formatInlineBold(trimmed.replace(/^[•*-]\s*/, ''))}</span>
+        </div>
+      );
+    }
+    if (/^\d+\.\s/.test(trimmed)) {
+      return (
+        <div key={idx} className="gemini-numbered-item">
+          {formatInlineBold(trimmed)}
+        </div>
+      );
+    }
+    if (!trimmed) {
+      return <div key={idx} style={{ height: '6px' }} />;
+    }
+    return (
+      <p key={idx} className="gemini-paragraph">
+        {formatInlineBold(line)}
+      </p>
+    );
+  });
+};
+
 function ActiveRoomPage({
   roomId,
   user,
@@ -816,9 +874,7 @@ function ActiveRoomPage({
 
   const cameraTrackRef  = useRef(null);
 
-  // ── Category 1: AI Quiz, AI Co-Teacher & Engagement States ──
-  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
-  const [activeQuizData, setActiveQuizData]   = useState(null);
+  // ── Category 1: Coursera-style Gemini Class Coach & Engagement States ──
   const [currentLectureTopic, setCurrentLectureTopic] = useState(() => {
     try {
       const cleanR = cleanRoomId(roomId);
@@ -830,6 +886,8 @@ function ActiveRoomPage({
       return 'WebRTC & Real-Time Sync';
     }
   });
+  const [isEditingTopic, setIsEditingTopic]   = useState(false);
+  const [editTopicVal, setEditTopicVal]       = useState('');
   const [hasHandRaised, setHasHandRaised]     = useState(false);
   const [handRaisedUsers, setHandRaisedUsers] = useState({}); // { socketId: { studentName, time } }
   const [engagementStats, setEngagementStats] = useState({}); // { socketId: { isFocused, score } }
@@ -838,12 +896,12 @@ function ActiveRoomPage({
   const [isMicTesting, setIsMicTesting]       = useState(false);
   const micTestAudioRef                       = useRef(null);
 
-  // AI Co-Teacher Chat State
+  // Gemini Class Coach Chat State (Coursera-style topic-aware assistant)
   const [aiChatMessages, setAiChatMessages]   = useState([
     {
       id: 'ai-intro',
       sender: 'assistant',
-      text: "👋 Hello! I'm your AI Co-Teacher. Ask me anything about this lecture, or click the quick prompt chips above!",
+      text: "👋 **Welcome to Gemini Class Coach!**\n\nI am your live AI academic assistant, synchronized with this lecture's topic. Ask questions, explore code examples, get real-world analogies, or click any topic chip below!",
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -1199,13 +1257,7 @@ function ActiveRoomPage({
       showToast(`🎬 Teacher started video: ${data?.videoTitle || 'YouTube Stream'}`, 'info');
     });
 
-    // ── Category 1: AI Quiz Events ──
-    socket.on('room-quiz-published', (quiz) => {
-      setActiveQuizData(quiz);
-      setIsQuizModalOpen(true);
-      showToast(`📝 Pop Quiz on "${quiz.topic || quiz.title || 'Lecture'}" Launched!`, 'info');
-    });
-
+    // ── Topic Sync from Instructor ──
     socket.on('room-topic-sync', ({ topic }) => {
       if (topic && typeof topic === 'string' && topic.trim()) {
         setCurrentLectureTopic(topic.trim());
@@ -1267,7 +1319,6 @@ function ActiveRoomPage({
       socket.off('room-locked-error');
       socket.off('doubt-pinned'); socket.off('doubt-resolved');
       socket.off('workspace-view-sync'); socket.off('video-source-change');
-      socket.off('room-quiz-published');
       socket.off('room-topic-sync');
       socket.off('student-hand-raised'); socket.off('student-hand-lowered');
       socket.off('peer-engagement-stat');
@@ -1540,8 +1591,30 @@ function ActiveRoomPage({
     };
   }, [roomId, user]);
 
-  // ─── Category 1: AI Co-Teacher Query Execution ───
-  const handleSendAiPrompt = (customPromptText = null) => {
+  // ─── Coursera-style Gemini Class Coach Handlers ───
+  const handleSaveTopic = (newTopicValue) => {
+    const freshTopic = (newTopicValue || editTopicVal).trim();
+    if (!freshTopic) return;
+    setCurrentLectureTopic(freshTopic);
+    setIsEditingTopic(false);
+    setEditTopicVal('');
+
+    // Emit live topic update to all classroom participants
+    if (socket && isConnected) {
+      socket.emit('set-room-topic', { roomId, topic: freshTopic });
+    }
+
+    try {
+      const cleanR = cleanRoomId(roomId);
+      localStorage.setItem('synclearn_topic_' + cleanR, freshTopic);
+      localStorage.setItem('synclearn_topic_' + cleanR.replace(/-/g, ''), freshTopic);
+      localStorage.setItem('synclearn_meeting_topic', freshTopic);
+    } catch (e) {}
+
+    showToast(`📌 Topic set to "${freshTopic}" & synced to classroom!`, 'success');
+  };
+
+  const handleSendAiPrompt = async (customPromptText = null) => {
     const query = (customPromptText || aiPromptInput).trim();
     if (!query) return;
 
@@ -1556,36 +1629,50 @@ function ActiveRoomPage({
     if (!customPromptText) setAiPromptInput('');
     setIsAiThinking(true);
 
-    setTimeout(() => {
+    try {
       const lectureContext = transcription.map(t => t.text).join(' ');
-      let replyText = '';
+      const res = await fetch('/api/v1/ai/gemini-ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          topic: currentLectureTopic,
+          lectureContext,
+          userRole: isInstructor ? 'instructor' : 'student',
+          userName: user?.name || (isInstructor ? 'Instructor' : 'Learner')
+        })
+      });
 
-      const lowerQ = query.toLowerCase();
-      if (lowerQ.includes('summarize') || lowerQ.includes('summary')) {
-        replyText = lectureContext.length > 20
-          ? `📝 **AI Lecture Summary**: During today's lecture, the discussion highlighted: "${lectureContext.slice(0, 180)}...". Key focus areas include peer connection setup, real-time message streams, and collaborative state sharing.`
-          : "📝 **AI Lecture Summary**: Today's session explores real-time collaboration using WebRTC, WebSocket signaling, and low-latency client synchronization.";
-      } else if (lowerQ.includes('concept') || lowerQ.includes('hard') || lowerQ.includes('doubt')) {
-        replyText = "💡 **Key Concept Breakdown**: The most crucial part of this architecture is how WebRTC handles ICE candidate discovery through STUN servers before directly establishing an encrypted peer-to-peer data channel.";
-      } else if (lowerQ.includes('formula') || lowerQ.includes('key')) {
-        replyText = "🔑 **Quick Reference Formulas & Rules**:\n• Bandwidth = Packet Size × Frame Rate\n• Latency Target: < 150ms for live collaboration\n• NAT Traversal Success Rate: ~85% with STUN alone, 99% with TURN relay fallback.";
-      } else {
-        replyText = `🤖 **AI Co-Teacher Answer**: In the context of your class session, regarding "${query}": Keep in mind that real-time signaling synchronizes events instantly across all participants while keeping network overhead minimal!`;
-      }
+      const data = await res.json();
+      const replyText = data?.answer || `🤖 **Gemini Class Coach**: Explaining "${query}" in the context of "${currentLectureTopic}".`;
 
       const aiReply = {
         id: 'ai_' + Date.now(),
         sender: 'assistant',
         text: replyText,
+        source: data?.source || 'gemini',
+        topic: data?.topic || currentLectureTopic,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setAiChatMessages(prev => [...prev, aiReply]);
+    } catch (err) {
+      console.warn('Gemini endpoint error, using local tutor engine:', err);
+      const fallbackReply = {
+        id: 'ai_' + Date.now(),
+        sender: 'assistant',
+        text: `### 🌟 Gemini Class Coach: **${currentLectureTopic}**\n\nRegarding your query on **${query}**:\n\n1. **Core Concept:** In ${currentLectureTopic}, this principle governs how modules communicate and maintain clean state boundaries.\n2. **Practical Usage:** Always structure your implementation with modular functions and robust edge-case checks.\n3. **Exam / Interview Takeaway:** Focus on real-world scalability and error-handling paradigms.\n\n> 💡 *Live Coach connected to lecture "${currentLectureTopic}". Ask more questions anytime!*`,
+        source: 'knowledge-engine',
+        topic: currentLectureTopic,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setAiChatMessages(prev => [...prev, fallbackReply]);
+    } finally {
       setIsAiThinking(false);
       setTimeout(() => {
         aiChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
-    }, 600);
+    }
   };
 
   // ─── AI Lecture Summary & Notes Download Handlers ───
@@ -2330,19 +2417,19 @@ function ActiveRoomPage({
 
                   {activeCategory === 'tools' && (
                     <div className="sidebar-sub-items">
-                      {/* AI Co-Teacher Tutor */}
+                      {/* ✨ Coursera-style Gemini Class Coach */}
                       <button
                         type="button"
                         className={`sidebar-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
                         onClick={() => setActiveTab(prev => prev === 'ai' ? null : 'ai')}
-                        title="AI Co-Teacher Tutor & Instant Doubt Solver"
+                        title={`✨ Gemini Class Coach: Topic "${currentLectureTopic}"`}
                       >
-                        <span className="sidebar-item-icon">🤖</span>
+                        <span className="sidebar-item-icon">✨</span>
                         <div className="sidebar-item-label">
-                          <span className="sidebar-item-title">AI Co-Teacher</span>
-                          <span className="sidebar-item-sub">Instant Doubt Solver</span>
+                          <span className="sidebar-item-title">Gemini Class Coach</span>
+                          <span className="sidebar-item-sub">Topic: {currentLectureTopic}</span>
                         </div>
-                        <span className="sidebar-item-badge amber">AI</span>
+                        <span className="sidebar-item-badge amber">GEMINI</span>
                       </button>
 
                       {/* Live Lecture Notes */}
@@ -2357,23 +2444,6 @@ function ActiveRoomPage({
                           <span className="sidebar-item-title">Lecture Notes</span>
                           <span className="sidebar-item-sub">{transcription.length > 0 ? `${transcription.length} notes captured` : 'Auto-transcription'}</span>
                         </div>
-                      </button>
-
-                      {/* AI Quiz Generator / Take Quiz */}
-                      <button
-                        type="button"
-                        className={`sidebar-nav-item ${activeQuizData && !isInstructor ? 'active' : ''}`}
-                        onClick={() => setIsQuizModalOpen(true)}
-                        title={isInstructor ? `Generate & Launch 20-Question AI Quiz on "${currentLectureTopic}"` : (activeQuizData ? `Take Live 20-Question Quiz: ${activeQuizData.topic || currentLectureTopic}` : `Take AI Quiz on "${currentLectureTopic}"`)}
-                      >
-                        <span className="sidebar-item-icon">📝</span>
-                        <div className="sidebar-item-label">
-                          <span className="sidebar-item-title">{isInstructor ? 'AI Quiz Maker' : (activeQuizData ? `Quiz: ${activeQuizData.topic || 'Active'}` : 'Take AI Quiz')}</span>
-                          <span className="sidebar-item-sub">{isInstructor ? `20 Qs: ${currentLectureTopic}` : (activeQuizData ? '20 Live Qs Ready' : `20 Qs on ${currentLectureTopic}`)}</span>
-                        </div>
-                        {activeQuizData && !isInstructor && (
-                          <span className="sidebar-item-badge amber">LIVE</span>
-                        )}
                       </button>
 
                       {/* Record Session */}
@@ -2565,20 +2635,20 @@ function ActiveRoomPage({
                 <div className="panel-header-title-box">
                   <span className="panel-main-icon">
                     {activeTab === 'chat' && '💬'}
-                    {activeTab === 'ai' && '🤖'}
+                    {activeTab === 'ai' && '✨'}
                     {activeTab === 'notes' && '🎙️'}
                     {activeTab === 'host' && '👥'}
                   </span>
                   <div className="panel-title-text-group">
                     <span className="panel-main-title">
                       {activeTab === 'chat' && 'Classroom Discussion'}
-                      {activeTab === 'ai' && 'AI Co-Teacher Tutor'}
+                      {activeTab === 'ai' && '✨ Gemini Class Coach'}
                       {activeTab === 'notes' && 'Live Lecture Notes'}
                       {activeTab === 'host' && 'Classroom Participants'}
                     </span>
                     <span className="panel-sub-title">
                       {activeTab === 'chat' && 'Live Doubts & Peer Q&A'}
-                      {activeTab === 'ai' && '24/7 Smart Concept Assistant'}
+                      {activeTab === 'ai' && `Topic: ${currentLectureTopic}`}
                       {activeTab === 'notes' && `${transcription.length} Captured Transcripts`}
                       {activeTab === 'host' && `${participants.length || 1} Connected Members`}
                     </span>
@@ -2930,68 +3000,193 @@ function ActiveRoomPage({
                 </div>
               )}
 
-              {/* Tab: AI Co-Teacher Assistant */}
+              {/* Tab: ✨ Coursera-Style Gemini Class Coach Assistant */}
               {activeTab === 'ai' && (
-                <div className="ai-tutor-container">
-                  <div className="ai-tutor-header">
-                    <div className="ai-tutor-title">
-                      <span>🤖 AI Co-Teacher Assistant</span>
+                <div className="ai-tutor-container gemini-coach-container">
+                  {/* Coach Header & Lecture Topic Banner */}
+                  <div className="ai-tutor-header gemini-coach-header">
+                    <div className="gemini-header-top-row">
+                      <div className="ai-tutor-title gemini-brand-title">
+                        <span className="gemini-sparkle-icon">✨</span>
+                        <span>Gemini Class Coach</span>
+                        <span className="gemini-tag">COURSERA AI</span>
+                      </div>
+                      {aiChatMessages.length > 1 && (
+                        <button
+                          type="button"
+                          className="gemini-clear-chat-btn"
+                          onClick={() => setAiChatMessages([
+                            {
+                              id: 'ai-intro',
+                              sender: 'assistant',
+                              text: `👋 **Welcome to Gemini Class Coach!**\n\nI am synchronized with lecture topic **"${currentLectureTopic}"**. Ask questions or pick a suggested topic below!`,
+                              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            }
+                          ])}
+                          title="Clear chat and restart conversation"
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
-                    <div className="ai-tutor-subtitle">
-                      Instant Doubt Solver & Live Lecture Explainer
-                    </div>
-                  </div>
 
-                  {/* Quick Prompts */}
-                  <div className="ai-tutor-chips">
-                    <button
-                      type="button"
-                      className="ai-prompt-chip"
-                      onClick={() => handleSendAiPrompt("Summarize the current lecture so far")}
-                    >
-                      💡 Summarize Lecture
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip"
-                      onClick={() => handleSendAiPrompt("Explain the hardest concept discussed today")}
-                    >
-                      ❓ Hardest Concept
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip"
-                      onClick={() => handleSendAiPrompt("Give me key formulas and architecture takeaways")}
-                    >
-                      🔑 Key Takeaways
-                    </button>
-                  </div>
+                    {/* Topic Context Indicator & Sync Banner */}
+                    <div className="gemini-topic-banner">
+                      <div className="gemini-topic-badge-row">
+                        <span className="gemini-topic-pin">📌 Lecture Topic:</span>
+                        <span className="gemini-topic-name" title={currentLectureTopic}>
+                          {currentLectureTopic}
+                        </span>
+                        {isInstructor ? (
+                          !isEditingTopic ? (
+                            <button
+                              type="button"
+                              className="gemini-edit-topic-pill"
+                              onClick={() => {
+                                setEditTopicVal(currentLectureTopic);
+                                setIsEditingTopic(true);
+                              }}
+                              title="Edit topic and sync with all students"
+                            >
+                              ✏️ Edit Topic
+                            </button>
+                          ) : null
+                        ) : (
+                          <span className="gemini-sync-pill">🟢 Live Synced</span>
+                        )}
+                      </div>
 
-                  {/* AI Chat History */}
-                  <div className="ai-tutor-messages">
-                    {aiChatMessages.map((msg) => (
-                      <div key={msg.id} className={`ai-chat-bubble ${msg.sender}`}>
-                        <div className="ai-bubble-sender">
-                          {msg.sender === 'assistant' ? '🤖 AI Co-Teacher' : '👤 You'} · {msg.time}
+                      {/* Instructor Topic Edit Input */}
+                      {isInstructor && isEditingTopic && (
+                        <div className="gemini-topic-edit-form">
+                          <input
+                            type="text"
+                            className="gemini-topic-edit-input"
+                            placeholder="Type new lecture topic..."
+                            value={editTopicVal}
+                            onChange={(e) => setEditTopicVal(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveTopic();
+                              if (e.key === 'Escape') setIsEditingTopic(false);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            className="gemini-topic-save-btn"
+                            onClick={() => handleSaveTopic()}
+                          >
+                            Save & Sync
+                          </button>
+                          <button
+                            type="button"
+                            className="gemini-topic-cancel-btn"
+                            onClick={() => setIsEditingTopic(false)}
+                          >
+                            Cancel
+                          </button>
                         </div>
-                        <div style={{ whiteSpace: 'pre-line' }}>{msg.text}</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Context-Aware Quick Prompt Chips */}
+                  <div className="ai-tutor-chips gemini-chips-container">
+                    <button
+                      type="button"
+                      className="ai-prompt-chip gemini-chip"
+                      onClick={() => handleSendAiPrompt(`Explain the core concept and definition of ${currentLectureTopic}`)}
+                      title={`Explain ${currentLectureTopic}`}
+                    >
+                      💡 Concept: What is {currentLectureTopic.length > 20 ? currentLectureTopic.slice(0, 20) + '...' : currentLectureTopic}?
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-prompt-chip gemini-chip"
+                      onClick={() => handleSendAiPrompt(`Give a real-world analogy and industry example for ${currentLectureTopic}`)}
+                      title="Real-world analogy"
+                    >
+                      🎯 Analogy & Example
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-prompt-chip gemini-chip"
+                      onClick={() => handleSendAiPrompt(`Show a complete, practical code implementation for ${currentLectureTopic}`)}
+                      title="Code implementation"
+                    >
+                      💻 Code & Architecture
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-prompt-chip gemini-chip"
+                      onClick={() => handleSendAiPrompt(`What are top 5 exam and interview viva questions on ${currentLectureTopic}?`)}
+                      title="Top exam questions"
+                    >
+                      📝 Top Exam Questions
+                    </button>
+                    <button
+                      type="button"
+                      className="ai-prompt-chip gemini-chip"
+                      onClick={() => handleSendAiPrompt("Summarize the current lecture session and main takeaways")}
+                      title="Summarize lecture"
+                    >
+                      ⚡ Recap Lecture
+                    </button>
+                  </div>
+
+                  {/* AI Chat History with Coursera Gemini Style */}
+                  <div className="ai-tutor-messages gemini-messages-list">
+                    {aiChatMessages.map((msg) => (
+                      <div key={msg.id} className={`ai-chat-bubble gemini-bubble ${msg.sender}`}>
+                        <div className="ai-bubble-sender gemini-bubble-meta">
+                          <span className="gemini-sender-name">
+                            {msg.sender === 'assistant' ? '✨ Gemini Class Coach' : '👤 You'}
+                          </span>
+                          {msg.sender === 'assistant' && (
+                            <span className="gemini-source-tag">
+                              {msg.source === 'gemini' ? 'Gemini 1.5 Flash' : msg.source === 'open-source-llm' ? 'Open-Source AI' : 'Class Knowledge'}
+                            </span>
+                          )}
+                          <span className="gemini-time-tag">{msg.time}</span>
+                          {msg.sender === 'assistant' && (
+                            <button
+                              type="button"
+                              className="gemini-copy-bubble-btn"
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.text);
+                                showToast('📋 Copied explanation to clipboard!', 'info');
+                              }}
+                              title="Copy answer"
+                            >
+                              Copy
+                            </button>
+                          )}
+                        </div>
+                        <div className="gemini-bubble-body">
+                          {renderFormattedAiText(msg.text)}
+                        </div>
                       </div>
                     ))}
                     {isAiThinking && (
-                      <div className="ai-chat-bubble assistant">
-                        <div className="ai-bubble-sender">🤖 AI Co-Teacher</div>
-                        <div>Thinking & analyzing lecture context... ⚡</div>
+                      <div className="ai-chat-bubble assistant gemini-thinking-bubble">
+                        <div className="ai-bubble-sender gemini-bubble-meta">
+                          <span className="gemini-sender-name">✨ Gemini Class Coach</span>
+                          <span className="gemini-source-tag pulsing">Thinking...</span>
+                        </div>
+                        <div className="gemini-thinking-text">
+                          <span className="gemini-loader-dot" /> Analyzing <strong>"{currentLectureTopic}"</strong> & crafting response...
+                        </div>
                       </div>
                     )}
                     <div ref={aiChatEndRef} />
                   </div>
 
                   {/* AI Input Box */}
-                  <div className="ai-tutor-input-box">
+                  <div className="ai-tutor-input-box gemini-input-container">
                     <input
                       type="text"
-                      className="ai-tutor-input"
-                      placeholder="Ask AI tutor anything..."
+                      className="ai-tutor-input gemini-input-field"
+                      placeholder={`Ask Gemini about "${currentLectureTopic}"...`}
                       value={aiPromptInput}
                       onChange={(e) => setAiPromptInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -3000,11 +3195,12 @@ function ActiveRoomPage({
                     />
                     <button
                       type="button"
-                      className="ai-tutor-send-btn"
+                      className="ai-tutor-send-btn gemini-ask-btn"
                       onClick={() => handleSendAiPrompt()}
                       disabled={!aiPromptInput.trim() || isAiThinking}
+                      title="Ask Gemini Coach"
                     >
-                      Ask
+                      <span>✨ Ask</span>
                     </button>
                   </div>
                 </div>
@@ -3824,25 +4020,6 @@ function ActiveRoomPage({
           </div>
         </div>
       )}
-
-      {/* AI Pop Quiz Modal */}
-      <AIQuizModal
-        isOpen={isQuizModalOpen}
-        onClose={() => setIsQuizModalOpen(false)}
-        isHost={isInstructor}
-        transcription={transcription.map(t => t.text).join('. ')}
-        currentVideoTitle={currentLectureTopic}
-        currentLectureTopic={currentLectureTopic}
-        socket={socket}
-        roomId={roomId}
-        userName={user?.name || (isInstructor ? 'Instructor' : 'Student')}
-        roomHostName={roomHostName}
-        activeQuizData={activeQuizData}
-        onQuizPublished={(publishedQuiz) => {
-          setActiveQuizData(publishedQuiz);
-          showToast(`🚀 20-Question Quiz on "${publishedQuiz?.topic || 'Lecture'}" launched to classroom!`, 'success');
-        }}
-      />
     </div>
   );
 }

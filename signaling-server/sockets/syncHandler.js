@@ -174,16 +174,7 @@ const syncHandler = (io, socket) => {
     if (roomVideoStates.has(roomId)) {
       socket.emit('video-source-change', roomVideoStates.get(roomId));
     }
-    let foundQuiz = null;
-    for (const v of variants) {
-      if (roomActiveQuizzes.has(v)) {
-        foundQuiz = roomActiveQuizzes.get(v);
-        break;
-      }
-    }
-    if (foundQuiz) {
-      socket.emit('room-quiz-published', foundQuiz);
-    }
+    // (Quiz auto-popup on join removed as requested)
 
     let currentTopic = null;
     for (const v of variants) {
