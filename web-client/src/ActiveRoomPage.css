@@ -4132,4 +4132,99 @@
     margin: 0 auto !important;
     z-index: 100001 !important;
   }
+
+  /* ── 12. Compact Phones (<= 480px, e.g. iPhone SE, Galaxy A-series) ── */
+  @media (max-width: 480px) {
+    .room-header {
+      height: 44px !important;
+      min-height: 44px !important;
+      padding: 0 6px !important;
+    }
+
+    .room-header-title .room-label {
+      display: none !important;
+    }
+
+    .status-indicator,
+    .room-roster-count-chip,
+    .instructor-host-badge,
+    .room-locked-chip {
+      font-size: 0.6rem !important;
+      padding: 1px 4px !important;
+    }
+
+    .room-footer {
+      height: 56px !important;
+      min-height: 56px !important;
+      padding-right: 20px !important;
+    }
+
+    .zoom-main-btn {
+      padding: 2px 4px !important;
+      min-width: 40px !important;
+    }
+
+    .zoom-btn-label {
+      font-size: 0.58rem !important;
+    }
+
+    .youtube-iframe-wrapper {
+      height: 190px !important;
+      min-height: 190px !important;
+    }
+
+    .video-card,
+    .local-video-card {
+      height: 105px !important;
+      min-height: 105px !important;
+    }
+
+    .canvas-area {
+      min-height: 400px !important;
+      height: 460px !important;
+    }
+
+    .canvas-area.full-view {
+      min-height: calc(100vh - 145px) !important;
+      height: calc(100vh - 145px) !important;
+      min-height: calc(100dvh - 145px) !important;
+      height: calc(100dvh - 145px) !important;
+    }
+  }
+
+  /* ── 13. Mobile Landscape Mode (Phone turned sideways) ── */
+  @media (max-width: 900px) and (orientation: landscape) {
+    .room-header {
+      height: 38px !important;
+      min-height: 38px !important;
+    }
+
+    .room-footer {
+      height: 46px !important;
+      min-height: 46px !important;
+    }
+
+    .room-body {
+      height: calc(100vh - 84px) !important;
+      height: calc(100dvh - 84px) !important;
+    }
+
+    .canvas-area {
+      min-height: 220px !important;
+      height: calc(100vh - 94px) !important;
+      height: calc(100dvh - 94px) !important;
+    }
+
+    .canvas-area.full-view {
+      min-height: calc(100vh - 94px) !important;
+      height: calc(100vh - 94px) !important;
+      min-height: calc(100dvh - 94px) !important;
+      height: calc(100dvh - 94px) !important;
+    }
+
+    .youtube-iframe-wrapper {
+      height: 170px !important;
+      min-height: 170px !important;
+    }
+  }
 }

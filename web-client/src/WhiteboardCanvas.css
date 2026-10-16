@@ -1053,6 +1053,29 @@
     padding: 4px 7px !important;
     font-size: 0.68rem !important;
   }
+
+  /* Compact phones (< 380px, e.g. iPhone SE) */
+  @media (max-width: 380px) {
+    .wb-brand-title {
+      padding: 3px 6px !important;
+      font-size: 0.65rem !important;
+    }
+    .wb-brand-text {
+      display: none !important;
+    }
+    .wb-tools-trigger-btn {
+      padding: 4px 8px !important;
+      font-size: 0.72rem !important;
+    }
+    .wb-actions-bar .wb-btn {
+      padding: 3px 5px !important;
+      font-size: 0.62rem !important;
+    }
+    .wb-mobile-tab-btn {
+      padding: 5px 8px !important;
+      font-size: 0.74rem !important;
+    }
+  }
 }
 
 

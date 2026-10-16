@@ -54,9 +54,16 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
 html, body, #root {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #d6f6f8;
   background-image: 
     linear-gradient(180deg, rgba(235, 253, 254, 0.45) 0%, rgba(188, 246, 248, 0.3) 45%, rgba(110, 228, 232, 0.45) 100%),

@@ -459,18 +459,42 @@
 }
 
 @media (max-width: 640px) {
+  .prejoin-overlay {
+    padding: 6px !important;
+  }
+  .prejoin-window {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 96vh !important;
+    border-radius: 12px !important;
+  }
   .prejoin-preview-viewport {
-    height: 250px;
+    height: 190px !important;
+    min-height: 190px !important;
+  }
+  .prejoin-content-body {
+    padding: 12px 10px !important;
+  }
+  .prejoin-controls-cluster {
+    bottom: 8px !important;
+    gap: 6px !important;
+  }
+  .prejoin-btn-pill {
+    padding: 5px 8px !important;
+    font-size: 0.74rem !important;
   }
   .prejoin-device-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
   .prejoin-footer-row {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: stretch !important;
   }
   .prejoin-start-btn {
-    width: 100%;
+    width: 100% !important;
+    padding: 11px !important;
+    font-size: 0.94rem !important;
   }
 }
