@@ -886,8 +886,7 @@ function ActiveRoomPage({
       return 'WebRTC & Real-Time Sync';
     }
   });
-  const [isEditingTopic, setIsEditingTopic]   = useState(false);
-  const [editTopicVal, setEditTopicVal]       = useState('');
+  const [showPromptSuggestions, setShowPromptSuggestions] = useState(false);
   const [hasHandRaised, setHasHandRaised]     = useState(false);
   const [handRaisedUsers, setHandRaisedUsers] = useState({}); // { socketId: { studentName, time } }
   const [engagementStats, setEngagementStats] = useState({}); // { socketId: { isFocused, score } }
@@ -3003,138 +3002,25 @@ function ActiveRoomPage({
               {/* Tab: ✨ Coursera-Style Gemini Class Coach Assistant */}
               {activeTab === 'ai' && (
                 <div className="ai-tutor-container gemini-coach-container">
-                  {/* Coach Header & Lecture Topic Banner */}
-                  <div className="ai-tutor-header gemini-coach-header">
-                    <div className="gemini-header-top-row">
-                      <div className="ai-tutor-title gemini-brand-title">
-                        <span className="gemini-sparkle-icon">✨</span>
-                        <span>Gemini Class Coach</span>
-                        <span className="gemini-tag">COURSERA AI</span>
-                      </div>
-                      {aiChatMessages.length > 1 && (
-                        <button
-                          type="button"
-                          className="gemini-clear-chat-btn"
-                          onClick={() => setAiChatMessages([
-                            {
-                              id: 'ai-intro',
-                              sender: 'assistant',
-                              text: `👋 **Welcome to Gemini Class Coach!**\n\nI am synchronized with lecture topic **"${currentLectureTopic}"**. Ask questions or pick a suggested topic below!`,
-                              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            }
-                          ])}
-                          title="Clear chat and restart conversation"
-                        >
-                          Clear
-                        </button>
-                      )}
+                  {/* Slim Topic Bar (Minimal, frees up maximum space for chat) */}
+                  <div className="gemini-slim-topic-bar">
+                    <div className="gemini-slim-topic-left">
+                      <span className="gemini-slim-topic-pin">📌 Topic:</span>
+                      <span className="gemini-slim-topic-text" title={currentLectureTopic}>
+                        {currentLectureTopic}
+                      </span>
                     </div>
-
-                    {/* Topic Context Indicator & Sync Banner */}
-                    <div className="gemini-topic-banner">
-                      <div className="gemini-topic-badge-row">
-                        <span className="gemini-topic-pin">📌 Lecture Topic:</span>
-                        <span className="gemini-topic-name" title={currentLectureTopic}>
-                          {currentLectureTopic}
-                        </span>
-                        {isInstructor ? (
-                          !isEditingTopic ? (
-                            <button
-                              type="button"
-                              className="gemini-edit-topic-pill"
-                              onClick={() => {
-                                setEditTopicVal(currentLectureTopic);
-                                setIsEditingTopic(true);
-                              }}
-                              title="Edit topic and sync with all students"
-                            >
-                              ✏️ Edit Topic
-                            </button>
-                          ) : null
-                        ) : (
-                          <span className="gemini-sync-pill">🟢 Live Synced</span>
-                        )}
-                      </div>
-
-                      {/* Instructor Topic Edit Input */}
-                      {isInstructor && isEditingTopic && (
-                        <div className="gemini-topic-edit-form">
-                          <input
-                            type="text"
-                            className="gemini-topic-edit-input"
-                            placeholder="Type new lecture topic..."
-                            value={editTopicVal}
-                            onChange={(e) => setEditTopicVal(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveTopic();
-                              if (e.key === 'Escape') setIsEditingTopic(false);
-                            }}
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            className="gemini-topic-save-btn"
-                            onClick={() => handleSaveTopic()}
-                          >
-                            Save & Sync
-                          </button>
-                          <button
-                            type="button"
-                            className="gemini-topic-cancel-btn"
-                            onClick={() => setIsEditingTopic(false)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Context-Aware Quick Prompt Chips */}
-                  <div className="ai-tutor-chips gemini-chips-container">
                     <button
                       type="button"
-                      className="ai-prompt-chip gemini-chip"
-                      onClick={() => handleSendAiPrompt(`Explain the core concept and definition of ${currentLectureTopic}`)}
-                      title={`Explain ${currentLectureTopic}`}
+                      className="gemini-slim-popup-trigger"
+                      onClick={() => setShowPromptSuggestions(true)}
+                      title="Open suggested topic questions popup"
                     >
-                      💡 Concept: What is {currentLectureTopic.length > 20 ? currentLectureTopic.slice(0, 20) + '...' : currentLectureTopic}?
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip gemini-chip"
-                      onClick={() => handleSendAiPrompt(`Give a real-world analogy and industry example for ${currentLectureTopic}`)}
-                      title="Real-world analogy"
-                    >
-                      🎯 Analogy & Example
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip gemini-chip"
-                      onClick={() => handleSendAiPrompt(`Show a complete, practical code implementation for ${currentLectureTopic}`)}
-                      title="Code implementation"
-                    >
-                      💻 Code & Architecture
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip gemini-chip"
-                      onClick={() => handleSendAiPrompt(`What are top 5 exam and interview viva questions on ${currentLectureTopic}?`)}
-                      title="Top exam questions"
-                    >
-                      📝 Top Exam Questions
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-prompt-chip gemini-chip"
-                      onClick={() => handleSendAiPrompt("Summarize the current lecture session and main takeaways")}
-                      title="Summarize lecture"
-                    >
-                      ⚡ Recap Lecture
+                      💡 Suggestions
                     </button>
                   </div>
 
-                  {/* AI Chat History with Coursera Gemini Style */}
+                  {/* AI Chat History with Full Spacious View */}
                   <div className="ai-tutor-messages gemini-messages-list">
                     {aiChatMessages.map((msg) => (
                       <div key={msg.id} className={`ai-chat-bubble gemini-bubble ${msg.sender}`}>
@@ -3144,7 +3030,7 @@ function ActiveRoomPage({
                           </span>
                           {msg.sender === 'assistant' && (
                             <span className="gemini-source-tag">
-                              {msg.source === 'gemini' ? 'Gemini 1.5 Flash' : msg.source === 'open-source-llm' ? 'Open-Source AI' : 'Class Knowledge'}
+                              {msg.source === 'gemini' ? 'Gemini 1.5' : msg.source === 'open-source-llm' ? 'Open-Source AI' : 'Class Knowledge'}
                             </span>
                           )}
                           <span className="gemini-time-tag">{msg.time}</span>
@@ -3181,8 +3067,16 @@ function ActiveRoomPage({
                     <div ref={aiChatEndRef} />
                   </div>
 
-                  {/* AI Input Box */}
+                  {/* AI Input Box with Popup Trigger */}
                   <div className="ai-tutor-input-box gemini-input-container">
+                    <button
+                      type="button"
+                      className="gemini-input-popup-btn"
+                      onClick={() => setShowPromptSuggestions(prev => !prev)}
+                      title="Open suggested topic questions"
+                    >
+                      💡
+                    </button>
                     <input
                       type="text"
                       className="ai-tutor-input gemini-input-field"
@@ -3203,6 +3097,101 @@ function ActiveRoomPage({
                       <span>✨ Ask</span>
                     </button>
                   </div>
+
+                  {/* ✨ Image 2 as a Popup / Modal Dialog */}
+                  {showPromptSuggestions && (
+                    <div
+                      className="gemini-popup-overlay"
+                      onClick={() => setShowPromptSuggestions(false)}
+                    >
+                      <div
+                        className="gemini-popup-card"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="gemini-popup-header">
+                          <div className="gemini-popup-title-group">
+                            <span className="gemini-popup-sparkle">💡</span>
+                            <div className="gemini-popup-headings">
+                              <span className="gemini-popup-main-title">Suggested Questions</span>
+                              <span className="gemini-popup-sub-title">Topic: {currentLectureTopic}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="gemini-popup-close-btn"
+                            onClick={() => setShowPromptSuggestions(false)}
+                            title="Close"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className="gemini-popup-body">
+                          <div className="gemini-popup-chips-stack">
+                            <button
+                              type="button"
+                              className="gemini-popup-chip-item"
+                              onClick={() => {
+                                setShowPromptSuggestions(false);
+                                handleSendAiPrompt(`Explain the core concept and definition of ${currentLectureTopic}`);
+                              }}
+                            >
+                              <span className="gemini-popup-chip-icon">💡</span>
+                              <span className="gemini-popup-chip-text">Concept: What is {currentLectureTopic}?</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="gemini-popup-chip-item"
+                              onClick={() => {
+                                setShowPromptSuggestions(false);
+                                handleSendAiPrompt(`Give a real-world analogy and industry example for ${currentLectureTopic}`);
+                              }}
+                            >
+                              <span className="gemini-popup-chip-icon">🎯</span>
+                              <span className="gemini-popup-chip-text">Analogy & Example</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="gemini-popup-chip-item"
+                              onClick={() => {
+                                setShowPromptSuggestions(false);
+                                handleSendAiPrompt(`Show a complete, practical code implementation for ${currentLectureTopic}`);
+                              }}
+                            >
+                              <span className="gemini-popup-chip-icon">💻</span>
+                              <span className="gemini-popup-chip-text">Code & Architecture</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="gemini-popup-chip-item"
+                              onClick={() => {
+                                setShowPromptSuggestions(false);
+                                handleSendAiPrompt(`What are top 5 exam and interview viva questions on ${currentLectureTopic}?`);
+                              }}
+                            >
+                              <span className="gemini-popup-chip-icon">📝</span>
+                              <span className="gemini-popup-chip-text">Top Exam Questions</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="gemini-popup-chip-item"
+                              onClick={() => {
+                                setShowPromptSuggestions(false);
+                                handleSendAiPrompt("Summarize the current lecture session and main takeaways");
+                              }}
+                            >
+                              <span className="gemini-popup-chip-icon">⚡</span>
+                              <span className="gemini-popup-chip-text">Recap Lecture</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
