@@ -217,9 +217,11 @@ function PreJoinModal({
       return;
     }
 
-    // Transfer live preview stream directly to ActiveRoomPage without stopping and restarting
-    const activeStream = streamRef.current;
-    streamRef.current = null; // Detach reference so unmount cleanup does not stop the live hardware tracks
+    // Stop preview stream before transferring to ActiveRoomPage
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
 
     if (onJoin) {
       onJoin({
@@ -227,7 +229,6 @@ function PreJoinModal({
         micOn,
         videoOn,
         blurBackground,
-        stream: activeStream,
       });
     }
   };
