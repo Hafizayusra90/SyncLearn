@@ -100,6 +100,7 @@ function App() {
   const [preJoinRoomId, setPreJoinRoomId] = useState('');
   const [isStudentLinkJoin, setIsStudentLinkJoin] = useState(false);
   const [preJoinMediaState, setPreJoinMediaState] = useState({ micOn: true, videoOn: true, blurBackground: false });
+  const [preJoinInitialStream, setPreJoinInitialStream] = useState(null);
 
   // ── Image 1 & 2: Settings Modal States ──
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -235,12 +236,13 @@ function App() {
     setIsPreJoinOpen(false);
   };
 
-  const handlePreJoinConfirm = ({ name, micOn, videoOn, blurBackground }) => {
+  const handlePreJoinConfirm = ({ name, micOn, videoOn, blurBackground, stream }) => {
     setPreJoinMediaState({
       micOn: micOn !== false,
       videoOn: videoOn !== false,
       blurBackground: !!blurBackground,
     });
+    setPreJoinInitialStream(stream || null);
     if (name) {
       setUser(prev => {
         const updated = { ...(prev || { role: 'student' }), name };
@@ -356,6 +358,7 @@ function App() {
             initialMicOn={preJoinMediaState.micOn}
             initialVideoOn={preJoinMediaState.videoOn}
             initialBlurBackground={preJoinMediaState.blurBackground}
+            initialStream={preJoinInitialStream}
           />
         )}
 

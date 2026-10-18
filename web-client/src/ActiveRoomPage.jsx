@@ -21,58 +21,81 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const isInstructorPeer = peerInfo?.userRole === 'instructor';
   const peerName = peerInfo?.userName || (isInstructorPeer ? 'Instructor' : 'Peer');
 
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+
   useEffect(() => {
-    let audioCtx;
-    let analyser;
     let animId;
 
     const setupStream = (stream) => {
       if (!stream) return;
+
+      // 1. Assign to HTML video and audio elements
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
       }
+
       if (audioRef.current) {
         audioRef.current.srcObject = stream;
-        audioRef.current.volume = peerVolume / 100;
+        audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.muted = false;
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => setAudioBlocked(false))
             .catch(err => {
-              console.warn('Remote peer audio playback waiting for interaction:', err);
+              console.warn('HTMLAudioElement play pending user touch:', err);
               setAudioBlocked(true);
             });
         }
       }
 
-      // Live voice detection on remote stream
+      // 2. Web Audio Analyser & Direct Speaker Routing
       try {
-        if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
-          if (stream.getAudioTracks().length > 0) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 128;
-            const source = audioCtx.createMediaStreamSource(stream);
-            source.connect(analyser);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-            const detectVoice = () => {
-              if (analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                const avg = sum / dataArray.length;
-                setIsSpeaking(avg > 18);
-              }
-              animId = requestAnimationFrame(detectVoice);
-            };
-            detectVoice();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const tracks = stream.getAudioTracks();
+        if (AudioCtx && tracks.length > 0) {
+          if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+            audioCtxRef.current = new AudioCtx();
           }
+          const ctx = audioCtxRef.current;
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.3;
+
+          // CRITICAL: Clone the audio track so Chrome NEVER silences the HTMLAudioElement!
+          const trackClone = tracks[0].clone();
+          const monitorStream = new MediaStream([trackClone]);
+          const source = ctx.createMediaStreamSource(monitorStream);
+          source.connect(analyser);
+
+          // Route to audioCtx.destination as a guaranteed hardware audio output pathway
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = Math.max(0, Math.min(1, peerVolume / 100));
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          gainNodeRef.current = gainNode;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const detectVoice = () => {
+            if (analyser) {
+              analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+              const avg = sum / dataArray.length;
+              setIsSpeaking(avg > 18);
+            }
+            animId = requestAnimationFrame(detectVoice);
+          };
+          detectVoice();
         }
       } catch (e) {
-        console.warn('Remote audio analyser error:', e);
+        console.warn('Remote audio setup warning:', e);
       }
     };
 
@@ -87,24 +110,33 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       peer.removeListener('stream', setupStream);
       peer.removeAllListeners('track');
       if (animId) cancelAnimationFrame(animId);
-      if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
   }, [peer]);
 
-  // Adjust volume dynamically without tearing down stream listeners
+  // Adjust volume dynamically across HTMLAudio and WebAudio gain node
   useEffect(() => {
+    const vol = Math.max(0, Math.min(1, peerVolume / 100));
     if (audioRef.current) {
-      audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
+      audioRef.current.volume = vol;
+    }
+    if (gainNodeRef.current) {
+      try { gainNodeRef.current.gain.value = vol; } catch (e) {}
     }
   }, [peerVolume]);
 
   const handleUnblockAudio = () => {
     if (audioRef.current) {
       audioRef.current.muted = false;
-      audioRef.current.volume = 1.0;
+      audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
       audioRef.current.play()
         .then(() => setAudioBlocked(false))
         .catch(err => console.error('Play error:', err));
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
     }
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
@@ -116,10 +148,13 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     const unlockAudio = () => {
       if (audioRef.current && audioRef.current.srcObject) {
         audioRef.current.muted = false;
-        audioRef.current.volume = peerVolume / 100;
+        audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.play()
           .then(() => setAudioBlocked(false))
           .catch(() => {});
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().then(() => setAudioBlocked(false)).catch(() => {});
       }
     };
 
@@ -500,37 +535,20 @@ async function acquireMediaStream(userName, isInstructor) {
   let stream = null;
   let hasRealVideo = false;
 
-  // 1. Try real video + audio (advanced audio constraints, then fallback to basic)
+  // 1. Fast direct video + audio attempt
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: true,
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      audio: true
     });
     hasRealVideo = true;
     return { stream, hasRealVideo };
-  } catch (errVideoAdv) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      hasRealVideo = true;
-      return { stream, hasRealVideo };
-    } catch (errVideo) {
-      console.warn('Physical camera unavailable (may be in use or permission pending):', errVideo);
-    }
-  }
-
-  // 2. Try audio only (advanced constraints first, then basic boolean fallback)
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    });
-  } catch (errAudioAdv) {
+  } catch (errVideo) {
+    // 2. Fast audio-only fallback
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (errAudio) {
-      console.warn('Hardware microphone unavailable or permission denied:', errAudio);
+      console.warn('Hardware microphone unavailable or permission pending:', errAudio);
       stream = new MediaStream();
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -627,6 +645,7 @@ function ActiveRoomPage({
   initialMicOn = true,
   initialVideoOn = true,
   initialBlurBackground = false,
+  initialStream = null,
 }) {
   const isInstructor = user?.role === 'instructor';
 
@@ -1065,7 +1084,14 @@ function ActiveRoomPage({
     const cleanRoom = cleanRoomId(roomId);
     let currentStream = null;
 
-    acquireMediaStream(user?.name, isInstructor).then(({ stream, hasRealVideo }) => {
+    const mediaPromise = (initialStream && initialStream.getTracks && initialStream.getTracks().length > 0)
+      ? Promise.resolve({
+          stream: initialStream,
+          hasRealVideo: initialStream.getVideoTracks().length > 0
+        })
+      : acquireMediaStream(user?.name, isInstructor);
+
+    mediaPromise.then(({ stream, hasRealVideo }) => {
       currentStream = stream;
       userStreamRef.current = stream;
       setUserStream(stream);
@@ -2069,9 +2095,6 @@ function ActiveRoomPage({
   const iceServersConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.cloudflare.com:3478' },
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -2079,11 +2102,6 @@ function ActiveRoomPage({
       },
       {
         urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
         username: 'openrelayproject',
         credential: 'openrelayproject'
       }
