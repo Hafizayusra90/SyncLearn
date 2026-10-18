@@ -446,7 +446,6 @@ function WhiteboardCanvas({ roomId, user, theme }) {
   const startDrawing = (e) => {
     // 1. Students are strictly restricted (cannot draw anything on whiteboard)
     if (!isInstructor) {
-      showToast('🔒 Whiteboard drawing is restricted to Instructor (View Only Mode)');
       return;
     }
 
@@ -895,7 +894,7 @@ function WhiteboardCanvas({ roomId, user, theme }) {
                 <div className="wb-student-notes-card">
                   <div className="wb-student-notes-body" style={{
                     fontSize: `${typingFontSize}px`,
-                    color: typingTextColor,
+                    color: isLightMode ? (typingTextColor === '#ffffff' ? '#0f172a' : typingTextColor) : typingTextColor,
                     margin: 0,
                     lineHeight: 1.6
                   }}>
