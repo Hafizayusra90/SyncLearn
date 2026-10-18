@@ -89,24 +89,40 @@ function PreJoinModal({
 
     async function setupPreviewStream() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+        let stream = null;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        } catch (errCombined) {
+          // If combined video+audio fails, try audio only then video only
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true }).catch(() => null);
+            stream = new MediaStream();
+            if (audioStream) audioStream.getAudioTracks().forEach((t) => stream.addTrack(t));
+            if (videoStream) videoStream.getVideoTracks().forEach((t) => stream.addTrack(t));
+          } catch (e) {
+            console.warn('Fallback media failed:', e);
+          }
+        }
 
         if (!isMounted) {
-          stream.getTracks().forEach((track) => track.stop());
+          if (stream) stream.getTracks().forEach((track) => track.stop());
           return;
         }
 
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (stream && stream.getTracks().length > 0) {
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
 
-        // Apply initial state
-        stream.getAudioTracks().forEach((t) => (t.enabled = micOn));
-        stream.getVideoTracks().forEach((t) => (t.enabled = videoOn));
+          // Apply initial state
+          stream.getAudioTracks().forEach((t) => (t.enabled = micOn));
+          stream.getVideoTracks().forEach((t) => (t.enabled = videoOn));
+        }
 
         // Enumerate devices
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -153,14 +169,25 @@ function PreJoinModal({
   }, [user?.name]);
 
   // Toggle Mic
-  const toggleMic = () => {
-    setMicOn((prev) => {
-      const next = !prev;
-      if (streamRef.current) {
-        streamRef.current.getAudioTracks().forEach((t) => (t.enabled = next));
+  const toggleMic = async () => {
+    const next = !micOn;
+    setMicOn(next);
+    let track = streamRef.current?.getAudioTracks()[0];
+    if (next && (!track || track.readyState !== 'live')) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const newTrack = audioStream.getAudioTracks()[0];
+        if (newTrack) {
+          newTrack.enabled = true;
+          if (!streamRef.current) streamRef.current = new MediaStream();
+          streamRef.current.addTrack(newTrack);
+        }
+      } catch (e) {
+        console.warn('Pre-join mic permission error:', e);
       }
-      return next;
-    });
+    } else if (track) {
+      track.enabled = next;
+    }
   };
 
   // Toggle Video

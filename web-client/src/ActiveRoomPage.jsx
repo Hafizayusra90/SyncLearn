@@ -27,6 +27,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     let animId;
 
     const setupStream = (stream) => {
+      if (!stream) return;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
@@ -34,33 +35,41 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       if (audioRef.current) {
         audioRef.current.srcObject = stream;
         audioRef.current.volume = peerVolume / 100;
-        audioRef.current.play()
-          .then(() => setAudioBlocked(false))
-          .catch(err => {
-            console.warn('Audio playback waiting for interaction:', err);
-            setAudioBlocked(true);
-          });
+        audioRef.current.muted = false;
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => setAudioBlocked(false))
+            .catch(err => {
+              console.warn('Remote peer audio playback waiting for interaction:', err);
+              setAudioBlocked(true);
+            });
+        }
       }
 
       // Live voice detection on remote stream
       try {
         if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 128;
-          const source = audioCtx.createMediaStreamSource(stream);
-          source.connect(analyser);
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          if (stream.getAudioTracks().length > 0) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 128;
+            const source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-          const detectVoice = () => {
-            analyser.getByteFrequencyData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-            const avg = sum / dataArray.length;
-            setIsSpeaking(avg > 18);
-            animId = requestAnimationFrame(detectVoice);
-          };
-          detectVoice();
+            const detectVoice = () => {
+              if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                const avg = sum / dataArray.length;
+                setIsSpeaking(avg > 18);
+              }
+              animId = requestAnimationFrame(detectVoice);
+            };
+            detectVoice();
+          }
         }
       } catch (e) {
         console.warn('Remote audio analyser error:', e);
@@ -80,7 +89,14 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       if (animId) cancelAnimationFrame(animId);
       if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
     };
-  }, [peer, peerVolume]);
+  }, [peer]);
+
+  // Adjust volume dynamically without tearing down stream listeners
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
+    }
+  }, [peerVolume]);
 
   const handleUnblockAudio = () => {
     if (audioRef.current) {
@@ -95,39 +111,51 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     }
   };
 
-  // Global user interaction unblocker
+  // Continuous user interaction unblocker for mobile touch and desktop click
   useEffect(() => {
-    const autoUnlock = () => {
-      if (audioRef.current) {
+    const unlockAudio = () => {
+      if (audioRef.current && audioRef.current.srcObject) {
         audioRef.current.muted = false;
+        audioRef.current.volume = peerVolume / 100;
         audioRef.current.play()
           .then(() => setAudioBlocked(false))
           .catch(() => {});
       }
     };
-    window.addEventListener('click', autoUnlock, { once: true });
-    window.addEventListener('keydown', autoUnlock, { once: true });
-    window.addEventListener('pointerdown', autoUnlock, { once: true });
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('touchend', unlockAudio, { passive: true });
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio);
+
     return () => {
-      window.removeEventListener('click', autoUnlock);
-      window.removeEventListener('keydown', autoUnlock);
-      window.removeEventListener('pointerdown', autoUnlock);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('touchend', unlockAudio);
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
     };
-  }, []);
+  }, [peerVolume]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }} className={isSpeaking ? 'peer-speaking-highlight' : ''}>
-      {/* ── Video Element (kept in DOM, hidden if camera off) ── */}
+      {/* ── Video Element (kept in DOM with opacity so mobile doesn't suspend media tracks) ── */}
       <video
         autoPlay
         playsInline
+        muted
         ref={videoRef}
         className="video-element"
         style={{
-          display: isVideoOn ? 'block' : 'none',
           width: '100%',
           height: '100%',
-          objectFit: 'cover'
+          objectFit: 'cover',
+          opacity: isVideoOn ? 1 : 0,
+          position: isVideoOn ? 'relative' : 'absolute',
+          inset: 0,
+          pointerEvents: isVideoOn ? 'auto' : 'none',
+          visibility: isVideoOn ? 'visible' : 'hidden'
         }}
       />
       <audio autoPlay playsInline ref={audioRef} />
@@ -472,7 +500,7 @@ async function acquireMediaStream(userName, isInstructor) {
   let stream = null;
   let hasRealVideo = false;
 
-  // 1. Try real video + audio
+  // 1. Try real video + audio (advanced audio constraints, then fallback to basic)
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: true,
@@ -480,26 +508,39 @@ async function acquireMediaStream(userName, isInstructor) {
     });
     hasRealVideo = true;
     return { stream, hasRealVideo };
-  } catch (errVideo) {
-    console.warn('Physical camera unavailable (may be in use by instructor/student tab):', errVideo);
+  } catch (errVideoAdv) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      hasRealVideo = true;
+      return { stream, hasRealVideo };
+    } catch (errVideo) {
+      console.warn('Physical camera unavailable (may be in use or permission pending):', errVideo);
+    }
   }
 
-  // 2. Try audio only
+  // 2. Try audio only (advanced constraints first, then basic boolean fallback)
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
     });
-  } catch (errAudio) {
-    console.warn('Hardware microphone also unavailable:', errAudio);
-    stream = new MediaStream();
+  } catch (errAudioAdv) {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const actx = new AudioCtx();
-        const dst = actx.createMediaStreamDestination();
-        dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-      }
-    } catch (e) {}
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (errAudio) {
+      console.warn('Hardware microphone unavailable or permission denied:', errAudio);
+      stream = new MediaStream();
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const actx = new AudioCtx();
+          const dst = actx.createMediaStreamDestination();
+          dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+        }
+      } catch (e) {}
+    }
   }
 
   // 3. Attach fallback canvas video track so WebRTC simple-peer video channel is established
@@ -1120,7 +1161,7 @@ function ActiveRoomPage({
         setMicOn(false);
         const audioTrack = userStreamRef.current?.getAudioTracks()[0];
         if (audioTrack) audioTrack.enabled = false;
-        socket.emit('media-state-change', { roomId, videoOn, micOn: false });
+        socket.emit('media-state-change', { roomId: cleanRoom, videoOn, micOn: false });
         showToast('🔇 You have been muted by the instructor', 'error');
       }
     });
@@ -1132,7 +1173,7 @@ function ActiveRoomPage({
           const nextVal = data?.action === 'on' ? true : (data?.action === 'off' ? false : !prev);
           const videoTrack = userStreamRef.current?.getVideoTracks()[0];
           if (videoTrack) videoTrack.enabled = nextVal;
-          socket.emit('media-state-change', { roomId, videoOn: nextVal, micOn });
+          socket.emit('media-state-change', { roomId: cleanRoom, videoOn: nextVal, micOn });
           showToast(nextVal ? '📹 Instructor enabled your camera' : '📹 Instructor turned your camera OFF', 'info');
           return nextVal;
         });
@@ -2030,30 +2071,125 @@ function ActiveRoomPage({
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.cloudflare.com:3478' }
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   };
 
   function createPeer(userToSignal, callerID, stream) {
     const peer = new Peer({ initiator: true, trickle: false, stream, config: iceServersConfig });
     peer.on('signal', signal => socket.emit('sending-signal', { userToSignal, callerID, signal }));
+    peer.on('error', err => console.warn('Peer connection warning (initiator):', err));
     return peer;
   }
 
   function addPeer(incomingSignal, callerID, stream) {
     const peer = new Peer({ initiator: false, trickle: false, stream, config: iceServersConfig });
     peer.on('signal', signal => socket.emit('returning-signal', { signal, callerID }));
+    peer.on('error', err => console.warn('Peer connection warning (receiver):', err));
     peer.signal(incomingSignal);
     return peer;
   }
 
-  const toggleMic = () => {
-    const track = userStreamRef.current?.getAudioTracks()[0];
-    if (track) {
-      const nextMic = !micOn;
-      track.enabled = nextMic;
-      setMicOn(nextMic);
-      socket.emit('media-state-change', { roomId, videoOn, micOn: nextMic });
+  const toggleMic = async () => {
+    const nextMic = !micOn;
+
+    if (nextMic) {
+      // User is enabling mic
+      let track = userStreamRef.current?.getAudioTracks()[0];
+      const needsFreshTrack = !track || track.readyState !== 'live' || track.label?.includes('AudioDestination') || track.label === '';
+
+      if (needsFreshTrack) {
+        try {
+          let audioStream;
+          try {
+            audioStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            });
+          } catch (e) {
+            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          }
+
+          const newAudioTrack = audioStream?.getAudioTracks()[0];
+          if (newAudioTrack) {
+            newAudioTrack.enabled = true;
+            if (userStreamRef.current) {
+              userStreamRef.current.getAudioTracks().forEach(t => {
+                try { t.stop(); } catch (e) {}
+                userStreamRef.current.removeTrack(t);
+              });
+              userStreamRef.current.addTrack(newAudioTrack);
+            }
+
+            // Dynamically replace audio track on all connected peers
+            peersRef.current.forEach(p => {
+              try {
+                const pc = p.peer?._pc;
+                if (pc) {
+                  const sender = pc.getSenders()?.find(s => (s.track && s.track.kind === 'audio') || s.kind === 'audio');
+                  if (sender) {
+                    sender.replaceTrack(newAudioTrack);
+                  } else if (p.peer?.addTrack) {
+                    p.peer.addTrack(newAudioTrack, userStreamRef.current);
+                  }
+                }
+              } catch (e) {
+                console.warn('Error replacing audio track on peer:', e);
+              }
+            });
+
+            setUserStream(new MediaStream(userStreamRef.current.getTracks()));
+            setMicOn(true);
+            socket.emit('media-state-change', { roomId: cleanRoomId(roomId), videoOn, micOn: true });
+            showToast('🎤 Microphone is live!');
+            return;
+          }
+        } catch (err) {
+          console.warn('Microphone permission or hardware error:', err);
+          showToast('⚠️ Microphone permission required. Please allow mic.');
+          return;
+        }
+      }
+
+      // Existing hardware track is live
+      if (track) {
+        track.enabled = true;
+        peersRef.current.forEach(p => {
+          try {
+            const pc = p.peer?._pc;
+            if (pc) {
+              const sender = pc.getSenders()?.find(s => (s.track && s.track.kind === 'audio') || s.kind === 'audio');
+              if (sender && sender.track !== track) {
+                sender.replaceTrack(track);
+              }
+            }
+          } catch (e) {}
+        });
+      }
+      setMicOn(true);
+      socket.emit('media-state-change', { roomId: cleanRoomId(roomId), videoOn, micOn: true });
+    } else {
+      // User turns mic OFF
+      const track = userStreamRef.current?.getAudioTracks()[0];
+      if (track) {
+        track.enabled = false;
+      }
+      setMicOn(false);
+      socket.emit('media-state-change', { roomId: cleanRoomId(roomId), videoOn, micOn: false });
     }
   };
 
