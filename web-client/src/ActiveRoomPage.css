@@ -3747,6 +3747,117 @@
   color: #64748b !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Light Mode Theme Overrides: Video Tiles, Canvas, Bottom Dock
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .video-card,
+[data-theme="light"] .local-video-card {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.35) !important;
+  box-shadow: 0 4px 16px rgba(8, 145, 178, 0.12) !important;
+}
+
+[data-theme="light"] .video-card:hover,
+[data-theme="light"] .local-video-card:hover {
+  border-color: #0891b2 !important;
+  box-shadow: 0 0 16px rgba(8, 145, 178, 0.25) !important;
+}
+
+[data-theme="light"] .video-camera-off-container {
+  background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%) !important;
+}
+
+[data-theme="light"] .video-camera-off-overlay-hint {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #0369a1 !important;
+  border: 1px solid rgba(8, 145, 178, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .video-camera-off-overlay-hint:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .video-label {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(8, 145, 178, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .video-label strong {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .canvas-area {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.3) !important;
+  box-shadow: 0 8px 30px rgba(8, 145, 178, 0.08) !important;
+}
+
+[data-theme="light"] .room-footer {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-top: 1.5px solid rgba(8, 145, 178, 0.25) !important;
+  box-shadow: 0 -6px 25px rgba(8, 145, 178, 0.10) !important;
+}
+
+[data-theme="light"] .zoom-toolbar-btn-group {
+  background: rgba(240, 253, 254, 0.95) !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(8, 145, 178, 0.08) !important;
+}
+
+[data-theme="light"] .zoom-toolbar-btn-group:hover {
+  background: #ffffff !important;
+  border-color: #0891b2 !important;
+  box-shadow: 0 0 12px rgba(8, 145, 178, 0.22) !important;
+}
+
+[data-theme="light"] .zoom-main-btn {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .zoom-main-btn:hover {
+  background: rgba(8, 145, 178, 0.12) !important;
+}
+
+[data-theme="light"] .zoom-main-btn.active-tab-btn {
+  background: rgba(8, 145, 178, 0.2) !important;
+  color: #0891b2 !important;
+}
+
+[data-theme="light"] .zoom-arrow-btn {
+  color: #0891b2 !important;
+}
+
+[data-theme="light"] .zoom-arrow-btn:hover,
+[data-theme="light"] .zoom-arrow-btn.open {
+  background: rgba(8, 145, 178, 0.18) !important;
+  color: #0e7490 !important;
+}
+
+[data-theme="light"] .control-btn {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.35) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .control-btn:hover {
+  background: rgba(240, 253, 254, 0.95) !important;
+  border-color: #0891b2 !important;
+  color: #0891b2 !important;
+}
+
+[data-theme="light"] .ctrl-label {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .zoom-btn-label {
+  color: #0f172a !important;
+}
+
 /* Green Link in Meeting Info */
 .zoom-info-green-link {
   color: #22c55e !important;

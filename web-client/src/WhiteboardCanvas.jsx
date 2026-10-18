@@ -14,7 +14,7 @@ const TOOLS = {
 
 const COLORS = ['#6366f1', '#a78bfa', '#38bdf8', '#4ade80', '#f59e0b', '#f87171', '#ffffff', '#000000'];
 
-function WhiteboardCanvas({ roomId, user }) {
+function WhiteboardCanvas({ roomId, user, theme }) {
   const canvasRef     = useRef(null);
   const isDrawingRef  = useRef(false);
   const prevCoord     = useRef({ x: 0, y: 0 });
@@ -26,7 +26,7 @@ function WhiteboardCanvas({ roomId, user }) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
-  const isLightMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+  const isLightMode = theme === 'light' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light');
   const [tool, setTool]           = useState(TOOLS.PEN);
   const [color, setColor]         = useState(isLightMode ? '#0f172a' : '#6366f1');
   const [lineWidth, setLineWidth] = useState(3);

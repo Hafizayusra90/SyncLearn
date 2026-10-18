@@ -139,7 +139,6 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(135deg, #0b1e38 0%, #061527 100%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -174,7 +173,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       <span className="video-label" style={{ zIndex: 20 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {isInstructorPeer ? '👨‍🏫 ' : '🎓 '}
-          <strong style={{ color: isInstructorPeer ? '#38bdf8' : '#ffffff' }}>
+          <strong style={{ color: isInstructorPeer ? '#38bdf8' : 'inherit' }}>
             {peerName}
           </strong>
         </span>
@@ -754,7 +753,7 @@ function ActiveRoomPage({
     const topicTitle = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session'))
       ? currentLectureTopic
       : 'Live Classroom Interactive Session';
-    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Topic: ${topicTitle}\n📅 Status: Live In Session Now\n\n🔗 WhatsApp & Mobile Link (Direct Access):\n${inviteUrl}\n\n📶 Same Wi-Fi Link:\n${wifiUrl}\n\n🆔 Meeting ID: ${formattedId}\n\n👉 Click the green link above to enter the whiteboard & video classroom directly on phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Topic: ${topicTitle}\n📅 Status: Live In Session Now\n\n🔗 WhatsApp & Mobile Link (Direct Access):\n${inviteUrl}\n\n🆔 Meeting ID: ${formattedId}\n\n👉 Click the green link above to enter the whiteboard & video classroom directly on phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     navigator.clipboard.writeText(text)
       .then(() => showToast('📋 WhatsApp class invitation copied! Ready to paste in WhatsApp.', 'success'))
       .catch(() => showToast('Failed to copy invitation', 'error'));
@@ -2829,7 +2828,7 @@ function ActiveRoomPage({
           {/* Whiteboard */}
           {(workspaceView === 'whiteboard' || workspaceView === 'all') && (
             <div className={`canvas-area ${workspaceView === 'whiteboard' ? 'full-view' : ''}`}>
-              <WhiteboardCanvas roomId={roomId} user={user} />
+              <WhiteboardCanvas roomId={roomId} user={user} theme={theme} />
             </div>
           )}
         </div>
@@ -3314,11 +3313,6 @@ function ActiveRoomPage({
                             <span className="gemini-sender-name">
                               {msg.sender === 'assistant' ? '✨ Gemini Coach' : '👤 You'}
                             </span>
-                            {msg.sender === 'assistant' && (
-                              <span className="gemini-source-tag">
-                                {msg.source === 'gemini' ? 'Gemini 1.5' : msg.source === 'open-source-llm' ? 'Open AI' : 'Class Knowledge'}
-                              </span>
-                            )}
                           </div>
                           <div className="gemini-bubble-meta-right">
                             <span className="gemini-time-tag">{msg.time}</span>
@@ -4110,7 +4104,6 @@ function ActiveRoomPage({
                 <div className="zoom-info-field-group">
                   <span className="zoom-info-field-title" style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
                     <span>📱 WhatsApp & Mobile Link</span>
-                    <span style={{ fontSize: '0.62rem', background: 'rgba(34, 197, 94, 0.25)', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Green Link</span>
                   </span>
                   <div className="zoom-info-field-value-row">
                     <span className="zoom-info-field-val zoom-info-green-link" style={{ fontSize: '0.72rem', wordBreak: 'break-all', fontWeight: 700 }}>
@@ -4124,24 +4117,6 @@ function ActiveRoomPage({
                       title="Copy WhatsApp & Mobile Link (Sends as clickable green link in WhatsApp)"
                     >
                       Copy Link
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Same Wi-Fi Link (Home / Campus LAN) */}
-                <div className="zoom-info-field-group">
-                  <span className="zoom-info-field-title">📶 Same Wi-Fi Link</span>
-                  <div className="zoom-info-field-value-row">
-                    <span className="zoom-info-field-val" style={{ fontSize: '0.68rem', wordBreak: 'break-all' }}>
-                      {getShareableLink('wifi')}
-                    </span>
-                    <button
-                      type="button"
-                      className="zoom-info-copy-btn"
-                      onClick={() => copyInviteLink('wifi')}
-                      title="Copy Local Wi-Fi Link"
-                    >
-                      Copy Wi-Fi
                     </button>
                   </div>
                 </div>
