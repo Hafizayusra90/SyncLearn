@@ -52,8 +52,21 @@ app.get('/api/v1/db-status', async (req, res) => {
 
 // LAN / Wi-Fi Network Info endpoint for cross-device mobile sharing
 const os = require('os');
+const fs = require('fs');
+
 app.get('/api/v1/network-info', (req, res) => {
   try {
+    let tunnelUrl = process.env.PUBLIC_TUNNEL_URL || '';
+    try {
+      const tunnelPath = path.join(__dirname, '..', 'tunnel_url.txt');
+      if (fs.existsSync(tunnelPath)) {
+        const fileContent = fs.readFileSync(tunnelPath, 'utf8').trim();
+        if (fileContent.startsWith('http')) {
+          tunnelUrl = fileContent;
+        }
+      }
+    } catch (te) {}
+
     const interfaces = os.networkInterfaces();
     let lanIp = 'localhost';
     for (const name of Object.keys(interfaces)) {
@@ -72,9 +85,9 @@ app.get('/api/v1/network-info', (req, res) => {
         break;
       }
     }
-    res.json({ lanIp: lanIp || '10.216.84.64', clientPort: 5173, serverPort: PORT });
+    res.json({ lanIp: lanIp || '192.168.100.135', tunnelUrl: tunnelUrl || '', clientPort: 5173, serverPort: PORT });
   } catch (e) {
-    res.json({ lanIp: '10.216.84.64', clientPort: 5173, serverPort: PORT });
+    res.json({ lanIp: '192.168.100.135', tunnelUrl: '', clientPort: 5173, serverPort: PORT });
   }
 });
 

@@ -24,6 +24,16 @@ const sanitizeRoomId = (raw) => {
   return str.replace(/^https?:\/\/[^/]+\/?/i, '').replace(/[^a-zA-Z0-9_-]/g, '').trim() || str.trim();
 };
 
+const getCanonicalRoomId = (raw) => {
+  if (!raw) return '';
+  const clean = sanitizeRoomId(raw);
+  const noHyphen = clean.replace(/-/g, '');
+  if (/^\d{9}$/.test(noHyphen)) {
+    return `${noHyphen.slice(0, 3)}-${noHyphen.slice(3, 6)}-${noHyphen.slice(6)}`;
+  }
+  return clean;
+};
+
 const getRoomVariants = (raw) => {
   if (!raw) return [];
   const clean = sanitizeRoomId(raw);
@@ -41,7 +51,8 @@ const syncHandler = (io, socket) => {
 
   // ── Room Join ──
   socket.on('join-room', ({ roomId: rawRoomId, userId, userName, userRole, roomTopic }) => {
-    const roomId = sanitizeRoomId(rawRoomId);
+    const canonicalRoomId = getCanonicalRoomId(rawRoomId);
+    const roomId = canonicalRoomId || sanitizeRoomId(rawRoomId);
     // Check if room is locked
     if (lockedRooms.has(roomId) && userRole !== 'instructor') {
       socket.emit('room-locked-error', { message: 'This room has been locked by the instructor.' });
@@ -128,15 +139,17 @@ const syncHandler = (io, socket) => {
     })();
 
     // Notify peers for WebRTC (always use socket.id)
-    socket.to(roomId).emit('user-connected', socket.id);
+    variants.forEach(v => socket.to(v).emit('user-connected', socket.id));
 
     if (userRole === 'instructor') {
       const instName = userName || 'Instructor';
       variants.forEach(v => roomInstructors.set(v, instName));
     }
 
-    // Broadcast updated participant roster
-    io.to(roomId).emit('room-participants-update', Array.from(currentRoomMap.values()));
+    // Broadcast updated participant roster to all variants and to current socket
+    const participantList = Array.from(currentRoomMap.values());
+    variants.forEach(v => io.to(v).emit('room-participants-update', participantList));
+    socket.emit('room-participants-update', participantList);
     socket.emit('room-lock-status', { isLocked: lockedRooms.has(roomId) });
 
     // Send existing media states of participants
@@ -160,11 +173,13 @@ const syncHandler = (io, socket) => {
       socket.emit('room-instructor-info', { instructorName: curInst });
     }
 
-    // Broadcast user joined toast notification to all peers in the room
-    socket.to(roomId).emit('peer-joined-notification', {
-      userName: userName || (userRole === 'instructor' ? 'Instructor' : 'A student'),
-      userRole: userRole || 'student',
-      totalCount: currentRoomMap.size
+    // Broadcast user joined toast notification to all peers in the room variants
+    variants.forEach(v => {
+      socket.to(v).emit('peer-joined-notification', {
+        userName: userName || (userRole === 'instructor' ? 'Instructor' : 'A student'),
+        userRole: userRole || 'student',
+        totalCount: currentRoomMap.size
+      });
     });
 
     // Send existing workspace view & video state to newly joined user
@@ -576,28 +591,31 @@ const syncHandler = (io, socket) => {
   socket.on('disconnect', () => {
     console.log('❌ User Disconnected:', socket.id);
     if (socket.roomId) {
-      socket.to(socket.roomId).emit('user-disconnected', socket.id);
+      const canonicalRoomId = getCanonicalRoomId(socket.roomId);
+      const variants = getRoomVariants(socket.roomId);
+      variants.forEach(v => socket.to(v).emit('user-disconnected', socket.id));
 
-      if (roomUsers.has(socket.roomId)) {
-        const currentRoomMap = roomUsers.get(socket.roomId);
+      if (roomUsers.has(canonicalRoomId)) {
+        const currentRoomMap = roomUsers.get(canonicalRoomId);
         currentRoomMap.delete(socket.id);
         const remainingCount = currentRoomMap.size;
 
         if (remainingCount === 0) {
-          roomUsers.delete(socket.roomId);
-          lockedRooms.delete(socket.roomId);
-          roomMediaStates.delete(socket.roomId);
+          roomUsers.delete(canonicalRoomId);
+          lockedRooms.delete(canonicalRoomId);
+          roomMediaStates.delete(canonicalRoomId);
         } else {
-          io.to(socket.roomId).emit('room-participants-update', Array.from(currentRoomMap.values()));
+          const participantList = Array.from(currentRoomMap.values());
+          variants.forEach(v => io.to(v).emit('room-participants-update', participantList));
         }
 
-        if (roomMediaStates.has(socket.roomId)) {
-          roomMediaStates.get(socket.roomId).delete(socket.id);
+        if (roomMediaStates.has(canonicalRoomId)) {
+          roomMediaStates.get(canonicalRoomId).delete(socket.id);
         }
 
         // Update MongoDB document: mark leftAt timestamp while preserving their attendance record
         Room.findOneAndUpdate(
-          { roomId: socket.roomId },
+          { roomId: canonicalRoomId },
           {
             $set: {
               studentsCount: remainingCount,

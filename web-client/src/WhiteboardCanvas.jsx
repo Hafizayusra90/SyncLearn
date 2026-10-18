@@ -26,9 +26,11 @@ function WhiteboardCanvas({ roomId, user }) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
+  const isLightMode = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
   const [tool, setTool]           = useState(TOOLS.PEN);
-  const [color, setColor]         = useState('#6366f1');
+  const [color, setColor]         = useState(isLightMode ? '#0f172a' : '#6366f1');
   const [lineWidth, setLineWidth] = useState(3);
+  const [isDrawingEnabled, setIsDrawingEnabled] = useState(false);
 
   // Dual Mode (Typing Pad + Whiteboard Canvas)
   const [isDualMode, setIsDualMode] = useState(true);
@@ -442,6 +444,18 @@ function WhiteboardCanvas({ roomId, user }) {
   };
 
   const startDrawing = (e) => {
+    // 1. Students are strictly restricted (cannot draw anything on whiteboard)
+    if (!isInstructor) {
+      showToast('🔒 Whiteboard drawing is restricted to Instructor (View Only Mode)');
+      return;
+    }
+
+    // 2. Instructor cannot draw until they enable/unlock drawing tool
+    if (!isDrawingEnabled && tool !== TOOLS.LASER) {
+      showToast('🔒 Drawing locked. Click "✏️ Drawing Locked" above to enable pen!');
+      return;
+    }
+
     const { x, y } = getPos(e);
 
     if (tool === TOOLS.LASER) {
@@ -471,6 +485,9 @@ function WhiteboardCanvas({ roomId, user }) {
   };
 
   const draw = (e) => {
+    if (!isInstructor) return;
+    if (!isDrawingEnabled && tool !== TOOLS.LASER) return;
+
     const { x, y } = getPos(e);
 
     // Laser pointer movement (doesn't require mouse down)
@@ -577,14 +594,15 @@ function WhiteboardCanvas({ roomId, user }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Create offscreen canvas with solid dark background
+    // Create offscreen canvas with solid theme-appropriate background
+    const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
     const offscreen = document.createElement('canvas');
     offscreen.width = canvas.width;
     offscreen.height = canvas.height;
     const oCtx = offscreen.getContext('2d');
 
     // Draw background
-    oCtx.fillStyle = '#0a0f1e';
+    oCtx.fillStyle = isLight ? '#ffffff' : '#0a0f1e';
     oCtx.fillRect(0, 0, offscreen.width, offscreen.height);
 
     // Draw whiteboard drawing
@@ -592,7 +610,7 @@ function WhiteboardCanvas({ roomId, user }) {
 
     // SyncLearn watermark & timestamp
     oCtx.font = 'bold 13px system-ui, sans-serif';
-    oCtx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    oCtx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.45)';
     oCtx.fillText(`SyncLearn Whiteboard • Room: ${roomId || 'Live'} • ${new Date().toLocaleDateString()}`, 16, offscreen.height - 16);
 
     const link = document.createElement('a');
@@ -607,17 +625,18 @@ function WhiteboardCanvas({ roomId, user }) {
     if (!canvas) return;
 
     try {
+      const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
       const offscreen = document.createElement('canvas');
       offscreen.width = canvas.width;
       offscreen.height = canvas.height;
       const oCtx = offscreen.getContext('2d');
 
-      oCtx.fillStyle = '#0a0f1e';
+      oCtx.fillStyle = isLight ? '#ffffff' : '#0a0f1e';
       oCtx.fillRect(0, 0, offscreen.width, offscreen.height);
       oCtx.drawImage(canvas, 0, 0);
 
       oCtx.font = 'bold 13px system-ui, sans-serif';
-      oCtx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      oCtx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.45)';
       oCtx.fillText(`SyncLearn Whiteboard • Room: ${roomId || 'Live'} • ${new Date().toLocaleString()}`, 16, offscreen.height - 16);
 
       const imgData = offscreen.toDataURL('image/png');
@@ -903,6 +922,25 @@ function WhiteboardCanvas({ roomId, user }) {
                 <span className="wb-brand-text">Whiteboard</span>
               </div>
 
+              {/* Drawing Permission Status Tool (Instructor toggle / Student view-only badge) */}
+              {isInstructor ? (
+                <button
+                  type="button"
+                  className={`wb-quick-lock-btn ${isDrawingEnabled ? 'active' : 'locked'}`}
+                  onClick={() => {
+                    setIsDrawingEnabled(prev => !prev);
+                    showToast(!isDrawingEnabled ? '✏️ Whiteboard drawing enabled! You can now draw.' : '🔒 Whiteboard drawing locked (view-only mode).');
+                  }}
+                  title={isDrawingEnabled ? "Drawing is active (Click to lock)" : "Drawing is locked (Click to unlock & draw)"}
+                >
+                  <span>{isDrawingEnabled ? '✏️ Drawing ON' : '🔒 Drawing Locked'}</span>
+                </button>
+              ) : (
+                <div className="wb-student-view-badge" title="Whiteboard drawing is restricted to Instructor">
+                  <span>👁️ View Only</span>
+                </div>
+              )}
+
               {/* Whiteboard Tools (Available for ALL participants on desktop & mobile) */}
               <div className="wb-tools-dropdown-container">
                 <button
@@ -930,121 +968,163 @@ function WhiteboardCanvas({ roomId, user }) {
                       </button>
                     </div>
 
-                    {/* 1. Drawing Tools */}
-                    <div className="wb-panel-section">
-                      <div className="wb-section-title">Draw Tools</div>
-                      <div className="wb-tools-grid">
+                    {/* Master Drawing Tool Lock */}
+                    {isInstructor ? (
+                      <div className="wb-panel-section">
+                        <div className="wb-section-title">✏️ Whiteboard Drawing Access</div>
                         <button
                           type="button"
-                          className={`wb-panel-btn ${tool === TOOLS.PEN ? 'active' : ''}`}
-                          onClick={() => setTool(TOOLS.PEN)}
-                        >
-                          ✏️ Pen
-                        </button>
-                        <button
-                          type="button"
-                          className={`wb-panel-btn ${tool === TOOLS.ERASER ? 'active' : ''}`}
-                          onClick={() => setTool(TOOLS.ERASER)}
-                        >
-                          🧹 Erase
-                        </button>
-                        <button
-                          type="button"
-                          className={`wb-panel-btn ${tool === TOOLS.LINE ? 'active' : ''}`}
-                          onClick={() => setTool(TOOLS.LINE)}
-                        >
-                          📏 Line
-                        </button>
-                        <button
-                          type="button"
-                          className="wb-panel-btn wb-btn-danger"
-                          onClick={clearBoard}
-                          style={{ gridColumn: 'span 3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
-                          title="Clear entire whiteboard canvas"
-                        >
-                          🗑️ Clear Board
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 2. Color Palette & Thickness */}
-                    <div className="wb-panel-section">
-                      <div className="wb-section-title">Colors & Stroke</div>
-                      <div className="wb-colors-row">
-                        {COLORS.map(c => (
-                          <button
-                            key={c}
-                            type="button"
-                            className={`wb-color-circle ${color === c ? 'selected' : ''}`}
-                            style={{ backgroundColor: c }}
-                            onClick={() => {
-                              if (tool === TOOLS.ERASER || tool === TOOLS.LASER) setTool(TOOLS.PEN);
-                              setColor(c);
-                            }}
-                            title={c}
-                          />
-                        ))}
-                        <input
-                          type="color"
-                          value={color}
-                          onChange={e => {
-                            if (tool === TOOLS.ERASER || tool === TOOLS.LASER) setTool(TOOLS.PEN);
-                            setColor(e.target.value);
+                          className={`wb-draw-permission-btn ${isDrawingEnabled ? 'unlocked' : 'locked'}`}
+                          onClick={() => {
+                            setIsDrawingEnabled(prev => !prev);
+                            showToast(!isDrawingEnabled ? '✏️ Whiteboard drawing enabled! You can draw now.' : '🔒 Whiteboard drawing locked.');
                           }}
-                          className="wb-color-picker-input"
-                          title="Custom Color"
-                        />
+                        >
+                          <span>{isDrawingEnabled ? '✏️ Drawing Enabled' : '🔒 Drawing Locked (Click to Draw)'}</span>
+                          <span className={`wb-status-pill ${isDrawingEnabled ? 'on' : 'off'}`}>
+                            {isDrawingEnabled ? 'ACTIVE' : 'LOCKED'}
+                          </span>
+                        </button>
+                        {!isDrawingEnabled ? (
+                          <p className="wb-lock-hint">🔒 Click the button above to unlock and enable pen/draw tools.</p>
+                        ) : (
+                          <p className="wb-lock-hint" style={{ color: '#4ade80' }}>✓ Drawing is active. Click to lock when finished.</p>
+                        )}
                       </div>
+                    ) : (
+                      <div className="wb-panel-section">
+                        <div className="wb-section-title">Whiteboard Access</div>
+                        <div className="wb-student-restricted-box">
+                          <span>🔒 Student View-Only</span>
+                          <p>Whiteboard drawing is restricted to the instructor. You are viewing the live lecture stream.</p>
+                        </div>
+                      </div>
+                    )}
 
-                      {/* Stroke Width Slider */}
-                      <div className="wb-slider-row">
-                        <span className="wb-slider-label">Width: <strong>{lineWidth}px</strong></span>
-                        <input
-                          type="range"
-                          min="1"
-                          max="16"
-                          value={lineWidth}
-                          onChange={e => setLineWidth(Number(e.target.value))}
-                          className="wb-width-slider"
-                        />
+                    {/* 1. Drawing Tools (Only visible to Instructor) */}
+                    {isInstructor && (
+                      <div className="wb-panel-section">
+                        <div className="wb-section-title">Draw Tools</div>
+                        <div className="wb-tools-grid">
+                          <button
+                            type="button"
+                            className={`wb-panel-btn ${tool === TOOLS.PEN ? 'active' : ''}`}
+                            onClick={() => setTool(TOOLS.PEN)}
+                          >
+                            ✏️ Pen
+                          </button>
+                          <button
+                            type="button"
+                            className={`wb-panel-btn ${tool === TOOLS.ERASER ? 'active' : ''}`}
+                            onClick={() => setTool(TOOLS.ERASER)}
+                          >
+                            🧹 Erase
+                          </button>
+                          <button
+                            type="button"
+                            className={`wb-panel-btn ${tool === TOOLS.LINE ? 'active' : ''}`}
+                            onClick={() => setTool(TOOLS.LINE)}
+                          >
+                            📏 Line
+                          </button>
+                          <button
+                            type="button"
+                            className="wb-panel-btn wb-btn-danger"
+                            onClick={clearBoard}
+                            style={{ gridColumn: 'span 3', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
+                            title="Clear entire whiteboard canvas"
+                          >
+                            🗑️ Clear Board
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* 2. Color Palette & Thickness (Only visible to Instructor) */}
+                    {isInstructor && (
+                      <div className="wb-panel-section">
+                        <div className="wb-section-title">Colors & Stroke</div>
+                        <div className="wb-colors-row">
+                          {COLORS.map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              className={`wb-color-circle ${color === c ? 'selected' : ''}`}
+                              style={{ backgroundColor: c }}
+                              onClick={() => {
+                                if (tool === TOOLS.ERASER || tool === TOOLS.LASER) setTool(TOOLS.PEN);
+                                setColor(c);
+                              }}
+                              title={c}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={color}
+                            onChange={e => {
+                              if (tool === TOOLS.ERASER || tool === TOOLS.LASER) setTool(TOOLS.PEN);
+                              setColor(e.target.value);
+                            }}
+                            className="wb-color-picker-input"
+                            title="Custom Color"
+                          />
+                        </div>
+
+                        {/* Stroke Width Slider */}
+                        <div className="wb-slider-row">
+                          <span className="wb-slider-label">Width: <strong>{lineWidth}px</strong></span>
+                          <input
+                            type="range"
+                            min="1"
+                            max="16"
+                            value={lineWidth}
+                            onChange={e => setLineWidth(Number(e.target.value))}
+                            className="wb-width-slider"
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {/* 3. History & Canvas Actions */}
                     <div className="wb-panel-section">
                       <div className="wb-section-title">Actions & View</div>
                       <div className="wb-actions-grid">
-                        <button
-                          type="button"
-                          className="wb-panel-btn"
-                          onClick={handleUndo}
-                          disabled={!canUndo}
-                          title="Undo (Ctrl+Z)"
-                        >
-                          ↩️ Undo
-                        </button>
-                        <button
-                          type="button"
-                          className="wb-panel-btn"
-                          onClick={handleRedo}
-                          disabled={!canRedo}
-                          title="Redo (Ctrl+Y)"
-                        >
-                          ↪️ Redo
-                        </button>
-                        <button
-                          type="button"
-                          className="wb-panel-btn wb-btn-danger"
-                          onClick={clearBoard}
-                          title="Clear Canvas"
-                        >
-                          🗑️ Clear
-                        </button>
+                        {isInstructor && (
+                          <>
+                            <button
+                              type="button"
+                              className="wb-panel-btn"
+                              onClick={handleUndo}
+                              disabled={!canUndo}
+                              title="Undo (Ctrl+Z)"
+                            >
+                              ↩️ Undo
+                            </button>
+                            <button
+                              type="button"
+                              className="wb-panel-btn"
+                              onClick={handleRedo}
+                              disabled={!canRedo}
+                              title="Redo (Ctrl+Y)"
+                            >
+                              ↪️ Redo
+                            </button>
+                            <button
+                              type="button"
+                              className="wb-panel-btn wb-btn-danger"
+                              onClick={clearBoard}
+                              title="Clear Canvas"
+                            >
+                              🗑️ Clear
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
                           className={`wb-panel-btn ${isDualMode ? 'active' : ''}`}
                           onClick={() => setIsDualMode(prev => !prev)}
                           title="Toggle Dual View (Typing Pad + Canvas)"
+                          style={!isInstructor ? { gridColumn: 'span 2' } : {}}
                         >
                           ⌨️ {isDualMode ? 'Dual View' : 'Full Canvas'}
                         </button>
@@ -1078,6 +1158,7 @@ function WhiteboardCanvas({ roomId, user }) {
 
           <canvas
             ref={canvasRef}
+            className="wb-drawing-canvas"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
@@ -1087,10 +1168,9 @@ function WhiteboardCanvas({ roomId, user }) {
             onTouchEnd={stopDrawing}
             style={{
               display: 'block',
-              background: '#0a0f1e',
               width: '100%',
               height: '100%',
-              cursor: tool === TOOLS.ERASER ? 'cell' : tool === TOOLS.LASER ? 'none' : 'crosshair',
+              cursor: !isInstructor || !isDrawingEnabled ? 'default' : tool === TOOLS.ERASER ? 'cell' : tool === TOOLS.LASER ? 'none' : 'crosshair',
               touchAction: 'none',
             }}
           />

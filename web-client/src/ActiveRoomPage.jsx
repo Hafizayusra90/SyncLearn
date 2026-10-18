@@ -673,8 +673,9 @@ function ActiveRoomPage({
     if (onLeaveRoom) onLeaveRoom();
   };
 
-  // Network LAN IP for sharing to mobile / other devices on the same Wi-Fi
-  const [networkLanIp, setNetworkLanIp] = useState('10.216.84.64');
+  // Network LAN IP & Public Tunnel URL for sharing to mobile / WhatsApp / other devices
+  const [networkLanIp, setNetworkLanIp] = useState('192.168.100.135');
+  const [tunnelUrl, setTunnelUrl] = useState('https://hats-approaches-observe-managed.trycloudflare.com');
 
   useEffect(() => {
     fetch('/api/v1/network-info')
@@ -682,6 +683,9 @@ function ActiveRoomPage({
       .then(d => {
         if (d?.lanIp && d.lanIp !== 'localhost') {
           setNetworkLanIp(d.lanIp);
+        }
+        if (d?.tunnelUrl && d.tunnelUrl.startsWith('http')) {
+          setTunnelUrl(d.tunnelUrl);
         }
       })
       .catch(() => {});
@@ -696,12 +700,23 @@ function ActiveRoomPage({
       : '';
     const topicParam = cleanTopic ? `&topic=${encodeURIComponent(cleanTopic)}` : '';
 
-    if (preferLocal) {
+    if (preferLocal === true || preferLocal === 'local') {
       return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
     }
-    // If running on a public tunnel or non-localhost host
+
+    if (preferLocal === 'wifi') {
+      const host = (networkLanIp && networkLanIp !== 'localhost') ? networkLanIp : '192.168.100.135';
+      return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
+    }
+
+    // Default: 'mobile' / false -> Prioritize active HTTPS public tunnel for WhatsApp
+    // When sent in WhatsApp, an HTTPS URL on a public domain becomes a 100% clickable green hyperlink!
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       return `${window.location.origin}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
+    }
+    if (tunnelUrl && tunnelUrl.startsWith('http')) {
+      const cleanTunnel = tunnelUrl.replace(/\/+$/, '');
+      return `${cleanTunnel}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
     }
     const host = (networkLanIp && networkLanIp !== 'localhost')
       ? networkLanIp
@@ -721,10 +736,10 @@ function ActiveRoomPage({
     const inviteUrl = getShareableLink(preferLocal);
     navigator.clipboard.writeText(inviteUrl)
       .then(() => {
-        if (preferLocal) {
+        if (preferLocal === true || preferLocal === 'local') {
           showToast(`💻 Localhost PC Link copied: ${inviteUrl}`);
         } else {
-          showToast(`📱 Mobile & Wi-Fi Share Link copied! Open on phone or send to students: ${inviteUrl}`, 'success');
+          showToast(`📱 WhatsApp & Mobile Link copied! Ready to paste in WhatsApp: ${inviteUrl}`, 'success');
         }
       })
       .catch(() => showToast('Failed to copy invite link', 'error'));
@@ -733,14 +748,15 @@ function ActiveRoomPage({
   const copyClassInvitation = () => {
     if (!roomId) return;
     const inviteUrl = getShareableLink(false);
+    const wifiUrl = getShareableLink('wifi');
     const formattedId = roomId.includes('-') ? roomId.replace(/-/g, ' ') : roomId;
     const instructorName = isInstructor ? (user?.name || 'Instructor') : (roomHostName || 'Instructor');
     const topicTitle = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session'))
       ? currentLectureTopic
       : 'Live Classroom Interactive Session';
-    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Topic: ${topicTitle}\n📅 Status: Live In Session Now\n\n🔗 Join Meeting Directly (Mobile / Tablet / PC):\n${inviteUrl}\n\n🆔 Meeting ID: ${formattedId}\n🔐 Security: Direct Verified Access\n\n👉 Click the link above to enter the whiteboard & video classroom on your phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Topic: ${topicTitle}\n📅 Status: Live In Session Now\n\n🔗 WhatsApp & Mobile Link (Direct Access):\n${inviteUrl}\n\n📶 Same Wi-Fi Link:\n${wifiUrl}\n\n🆔 Meeting ID: ${formattedId}\n\n👉 Click the green link above to enter the whiteboard & video classroom directly on phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     navigator.clipboard.writeText(text)
-      .then(() => showToast('📋 Mobile & Wi-Fi class invitation copied! Ready to paste in WhatsApp/Email.', 'success'))
+      .then(() => showToast('📋 WhatsApp class invitation copied! Ready to paste in WhatsApp.', 'success'))
       .catch(() => showToast('Failed to copy invitation', 'error'));
   };
   const copyZoomInvitation = copyClassInvitation;
@@ -1351,7 +1367,7 @@ function ActiveRoomPage({
       socket.off('meeting-ended-by-host');
       socket.disconnect();
     };
-  }, [roomId, isInstructor, onLeaveRoom, user]);
+  }, [roomId, isInstructor, user?.name, user?.role]);
 
   // ─── Live Mic Voice Volume Detection (Web Audio API) ───
   useEffect(() => {
@@ -3294,28 +3310,32 @@ function ActiveRoomPage({
                     {aiChatMessages.map((msg) => (
                       <div key={msg.id} className={`ai-chat-bubble gemini-bubble ${msg.sender}`}>
                         <div className="ai-bubble-sender gemini-bubble-meta">
-                          <span className="gemini-sender-name">
-                            {msg.sender === 'assistant' ? '✨ Gemini Class Coach' : '👤 You'}
-                          </span>
-                          {msg.sender === 'assistant' && (
-                            <span className="gemini-source-tag">
-                              {msg.source === 'gemini' ? 'Gemini 1.5' : msg.source === 'open-source-llm' ? 'Open-Source AI' : 'Class Knowledge'}
+                          <div className="gemini-bubble-meta-left">
+                            <span className="gemini-sender-name">
+                              {msg.sender === 'assistant' ? '✨ Gemini Coach' : '👤 You'}
                             </span>
-                          )}
-                          <span className="gemini-time-tag">{msg.time}</span>
-                          {msg.sender === 'assistant' && (
-                            <button
-                              type="button"
-                              className="gemini-copy-bubble-btn"
-                              onClick={() => {
-                                navigator.clipboard.writeText(msg.text);
-                                showToast('📋 Copied explanation to clipboard!', 'info');
-                              }}
-                              title="Copy answer"
-                            >
-                              Copy
-                            </button>
-                          )}
+                            {msg.sender === 'assistant' && (
+                              <span className="gemini-source-tag">
+                                {msg.source === 'gemini' ? 'Gemini 1.5' : msg.source === 'open-source-llm' ? 'Open AI' : 'Class Knowledge'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="gemini-bubble-meta-right">
+                            <span className="gemini-time-tag">{msg.time}</span>
+                            {msg.sender === 'assistant' && (
+                              <button
+                                type="button"
+                                className="gemini-copy-bubble-btn"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(msg.text);
+                                  showToast('📋 Copied explanation to clipboard!', 'info');
+                                }}
+                                title="Copy answer"
+                              >
+                                Copy
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="gemini-bubble-body">
                           {renderFormattedAiText(msg.text)}
@@ -3325,8 +3345,10 @@ function ActiveRoomPage({
                     {isAiThinking && (
                       <div className="ai-chat-bubble assistant gemini-thinking-bubble">
                         <div className="ai-bubble-sender gemini-bubble-meta">
-                          <span className="gemini-sender-name">✨ Gemini Class Coach</span>
-                          <span className="gemini-source-tag pulsing">Thinking...</span>
+                          <div className="gemini-bubble-meta-left">
+                            <span className="gemini-sender-name">✨ Gemini Coach</span>
+                            <span className="gemini-source-tag pulsing">Thinking...</span>
+                          </div>
                         </div>
                         <div className="gemini-thinking-text">
                           <span className="gemini-loader-dot" /> Analyzing <strong>"{currentLectureTopic}"</strong> & crafting response...
@@ -4084,11 +4106,11 @@ function ActiveRoomPage({
                   </div>
                 </div>
 
-                {/* 1. Mobile & Wi-Fi Shareable Link */}
+                {/* 1. Mobile & WhatsApp Direct Shareable Link (HTTPS Cloudflare) */}
                 <div className="zoom-info-field-group">
                   <span className="zoom-info-field-title" style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
-                    <span>📱 Mobile / Wi-Fi Link</span>
-                    <span style={{ fontSize: '0.62rem', background: 'rgba(34, 197, 94, 0.25)', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Shareable</span>
+                    <span>📱 WhatsApp & Mobile Link</span>
+                    <span style={{ fontSize: '0.62rem', background: 'rgba(34, 197, 94, 0.25)', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Green Link</span>
                   </span>
                   <div className="zoom-info-field-value-row">
                     <span className="zoom-info-field-val zoom-info-green-link" style={{ fontSize: '0.72rem', wordBreak: 'break-all', fontWeight: 700 }}>
@@ -4099,14 +4121,32 @@ function ActiveRoomPage({
                       className="zoom-info-copy-btn"
                       style={{ background: 'rgba(34, 197, 94, 0.2)', borderColor: '#22c55e', color: '#16a34a', fontWeight: 700 }}
                       onClick={() => copyInviteLink(false)}
-                      title="Copy Mobile / Wi-Fi Link for WhatsApp / SMS"
+                      title="Copy WhatsApp & Mobile Link (Sends as clickable green link in WhatsApp)"
                     >
-                      Copy Mobile
+                      Copy Link
                     </button>
                   </div>
                 </div>
 
-                {/* 2. Local PC Link */}
+                {/* 2. Same Wi-Fi Link (Home / Campus LAN) */}
+                <div className="zoom-info-field-group">
+                  <span className="zoom-info-field-title">📶 Same Wi-Fi Link</span>
+                  <div className="zoom-info-field-value-row">
+                    <span className="zoom-info-field-val" style={{ fontSize: '0.68rem', wordBreak: 'break-all' }}>
+                      {getShareableLink('wifi')}
+                    </span>
+                    <button
+                      type="button"
+                      className="zoom-info-copy-btn"
+                      onClick={() => copyInviteLink('wifi')}
+                      title="Copy Local Wi-Fi Link"
+                    >
+                      Copy Wi-Fi
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Local PC Link */}
                 <div className="zoom-info-field-group">
                   <span className="zoom-info-field-title">💻 Local PC Link</span>
                   <div className="zoom-info-field-value-row">
@@ -4124,10 +4164,23 @@ function ActiveRoomPage({
                   </div>
                 </div>
 
+                {/* 4. Host Connected Status */}
                 <div className="zoom-info-field-group">
-                  <span className="zoom-info-field-title">Active Roster</span>
+                  <span className="zoom-info-field-title" style={{ color: '#38bdf8', fontWeight: 700 }}>👨‍🏫 Host Status</span>
                   <div className="zoom-info-field-value-row">
-                    <span className="zoom-info-field-val">{participants.length || 1} connected</span>
+                    <span className="zoom-info-field-val" style={{ color: '#38bdf8', fontWeight: 700 }}>
+                      Host connected: {isInstructor ? (user?.name || 'Instructor') : (roomHostName || 'Instructor')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. Participants Connected Status */}
+                <div className="zoom-info-field-group">
+                  <span className="zoom-info-field-title" style={{ color: '#4ade80', fontWeight: 700 }}>👥 Participants Status</span>
+                  <div className="zoom-info-field-value-row">
+                    <span className="zoom-info-field-val" style={{ color: '#4ade80', fontWeight: 700 }}>
+                      Participants connected: {participants.length || 1}
+                    </span>
                   </div>
                 </div>
               </div>

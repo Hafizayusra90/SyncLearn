@@ -246,13 +246,13 @@
   gap: 12px;
 }
 .dropzone-inner h3 {
-  color: #f8fafc;
-  font-size: 1.2rem;
+  color: #38bdf8 !important;
+  font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
 }
 .dropzone-inner p {
-  color: #94a3b8;
+  color: #94a3b8 !important;
   font-size: 0.88rem;
   margin: 0;
   line-height: 1.4;
@@ -666,3 +666,72 @@
     width: 100%;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Light Mode Overrides for Video Player & Dropzone
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .video-dropzone-box {
+  background: #ffffff !important;
+  border: 2px dashed rgba(8, 145, 178, 0.45) !important;
+  box-shadow: 0 4px 25px rgba(8, 145, 178, 0.08) !important;
+}
+
+[data-theme="light"] .dropzone-inner h3 {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .dropzone-inner p {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .btn-browse-video {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3) !important;
+}
+
+[data-theme="light"] .btn-browse-video:hover {
+  background: #0369a1 !important;
+}
+
+[data-theme="light"] .dropzone-divider {
+  color: #0e7490 !important;
+}
+
+[data-theme="light"] .dropzone-divider::before,
+[data-theme="light"] .dropzone-divider::after {
+  border-bottom: 1px solid rgba(8, 145, 178, 0.25) !important;
+}
+
+[data-theme="light"] .dropzone-yt-input {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(8, 145, 178, 0.35) !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .dropzone-yt-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] .video-player-container {
+  background: transparent !important;
+}
+
+[data-theme="light"] .video-header-bar {
+  background: rgba(240, 253, 254, 0.95) !important;
+  border-color: rgba(8, 145, 178, 0.25) !important;
+}
+
+[data-theme="light"] .video-topic-title {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .youtube-sync-controller {
+  background: rgba(240, 253, 254, 0.95) !important;
+  border-color: rgba(8, 145, 178, 0.25) !important;
+}
+
+[data-theme="light"] .sync-status-badge {
+  color: #0891b2 !important;
+}
+
