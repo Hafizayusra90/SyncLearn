@@ -759,10 +759,10 @@ function WhiteboardCanvas({ roomId, user }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: '1.1rem' }}>⌨️</span>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
+                      <h4 className="wb-typing-title">
                         Typing Pad
                       </h4>
-                      <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                      <span className="wb-typing-subtitle">
                         Type, highlight words & live sync notes
                       </span>
                     </div>
@@ -853,7 +853,7 @@ function WhiteboardCanvas({ roomId, user }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: '1.1rem' }}>👨‍🏫</span>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
+                      <h4 className="wb-typing-title">
                         Typing Pad (Teacher's Notes)
                       </h4>
                       <span style={{ fontSize: '0.72rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>

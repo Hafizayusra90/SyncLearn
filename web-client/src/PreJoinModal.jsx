@@ -214,6 +214,17 @@ function PreJoinModal({
 
   const showNameField = !isInstructor || isStudentJoinLink || !user?.name;
 
+  const resolvedTopic = (() => {
+    const cleanId = (roomId || '').trim();
+    const stored = localStorage.getItem('synclearn_topic_' + cleanId) || 
+                   localStorage.getItem('synclearn_topic_' + cleanId.replace(/-/g, '')) || 
+                   localStorage.getItem('synclearn_meeting_topic') || '';
+    if (stored && stored !== 'Live Classroom' && !stored.startsWith('Live Session') && stored !== 'Untitled Class') {
+      return stored.trim();
+    }
+    return '';
+  })();
+
   return (
     <div className="prejoin-overlay" onClick={onClose}>
       <div className="prejoin-window" onClick={(e) => e.stopPropagation()}>
@@ -221,7 +232,14 @@ function PreJoinModal({
         <div className="prejoin-titlebar">
           <div className="prejoin-title-left">
             <img src={syncLearnLogo} alt="SyncLearn" className="prejoin-logo-img" />
-            <span className="prejoin-title-text">{meetingHostName}'s SyncLearn Classroom</span>
+            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+              <span className="prejoin-title-text">{meetingHostName}'s SyncLearn Classroom</span>
+              {resolvedTopic && (
+                <span style={{ fontSize: '0.72rem', color: '#06b6d4', fontWeight: 600 }}>
+                  📚 Topic: {resolvedTopic}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button

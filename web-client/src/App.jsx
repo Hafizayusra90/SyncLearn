@@ -158,18 +158,32 @@ function App() {
     return val.replace(/^https?:\/\/[^/]+\/?/i, '').replace(/[^a-zA-Z0-9_-]/g, '').trim() || val.trim();
   };
 
-  // Auto-join room via invite link (?room=xxxx&host=InstructorName)
+  // Auto-join room via invite link (?room=xxxx&host=InstructorName&topic=TopicName)
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const roomFromUrl = params.get('room');
       const hostFromUrl = params.get('host');
+      const topicFromUrl = params.get('topic');
       if (roomFromUrl && roomFromUrl.trim()) {
         const sanitizedRoom = extractCleanRoom(roomFromUrl);
         if (sanitizedRoom) {
           setPreJoinRoomId(sanitizedRoom);
-          if (hostFromUrl) {
-            setRoomHostName(decodeURIComponent(hostFromUrl.trim()));
+          if (hostFromUrl && hostFromUrl.trim()) {
+            const cleanHost = decodeURIComponent(hostFromUrl.trim());
+            setRoomHostName(cleanHost);
+            try {
+              localStorage.setItem('synclearn_host_' + sanitizedRoom, cleanHost);
+              localStorage.setItem('synclearn_host_' + sanitizedRoom.replace(/-/g, ''), cleanHost);
+            } catch(e) {}
+          }
+          if (topicFromUrl && topicFromUrl.trim()) {
+            const cleanTopic = decodeURIComponent(topicFromUrl.trim());
+            try {
+              localStorage.setItem('synclearn_topic_' + sanitizedRoom, cleanTopic);
+              localStorage.setItem('synclearn_topic_' + sanitizedRoom.replace(/-/g, ''), cleanTopic);
+              localStorage.setItem('synclearn_meeting_topic', cleanTopic);
+            } catch(e) {}
           }
           setIsStudentLinkJoin(true);
           setIsPreJoinOpen(true);

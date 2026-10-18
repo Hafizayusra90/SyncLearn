@@ -649,14 +649,20 @@ function ActiveRoomPage({
         const savedTopic = localStorage.getItem('synclearn_topic_' + cleanR) || localStorage.getItem('synclearn_topic_' + cleanR.replace(/-/g, '')) || '';
         const savedHost = localStorage.getItem('synclearn_host_' + cleanR) || localStorage.getItem('synclearn_host_' + cleanR.replace(/-/g, '')) || '';
 
+        const validTopic = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session') && currentLectureTopic !== 'Untitled Class')
+          ? currentLectureTopic
+          : (savedTopic || 'SyncLearn Interactive Session');
+
+        const validHost = isInstructor ? (user?.name || 'Instructor') : (savedHost || roomHostName || 'Instructor');
+
         const newRecord = {
           code: roomId,
-          title: savedTopic || `Live Session (${roomId})`,
-          topic: savedTopic || `Live Session (${roomId})`,
+          title: validTopic,
+          topic: validTopic,
           date: 'Just now',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           students: totalAttendees,
-          instructor: isInstructor ? (user?.name || 'You') : (savedHost || roomHostName || 'Instructor')
+          instructor: validHost
         };
         const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
         localStorage.setItem(userKey, JSON.stringify(updated));
@@ -685,17 +691,22 @@ function ActiveRoomPage({
     if (!roomId) return '';
     const currentHost = isInstructor ? (user?.name || '') : (roomHostName || '');
     const hostParam = currentHost ? `&host=${encodeURIComponent(currentHost)}` : '';
+    const cleanTopic = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session'))
+      ? currentLectureTopic
+      : '';
+    const topicParam = cleanTopic ? `&topic=${encodeURIComponent(cleanTopic)}` : '';
+
     if (preferLocal) {
-      return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
+      return `${window.location.protocol}//localhost:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
     }
     // If running on a public tunnel or non-localhost host
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return `${window.location.origin}/?room=${encodeURIComponent(roomId)}${hostParam}`;
+      return `${window.location.origin}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
     }
     const host = (networkLanIp && networkLanIp !== 'localhost')
       ? networkLanIp
       : '192.168.100.135';
-    return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}`;
+    return `${window.location.protocol}//${host}:${window.location.port || '5173'}/?room=${encodeURIComponent(roomId)}${hostParam}${topicParam}`;
   };
 
   const copyRoomCode = () => {
@@ -723,8 +734,11 @@ function ActiveRoomPage({
     if (!roomId) return;
     const inviteUrl = getShareableLink(false);
     const formattedId = roomId.includes('-') ? roomId.replace(/-/g, ' ') : roomId;
-    const instructorName = user?.name || 'Instructor';
-    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Classroom: SyncLearn Interactive Session\n📅 Status: Live In Session Now\n\n🔗 Join Meeting Directly (Mobile / Tablet / PC):\n${inviteUrl}\n\n🆔 Meeting ID: ${formattedId}\n🔐 Security: Direct Verified Access\n\n👉 Click the link above to enter the whiteboard & video classroom on your phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    const instructorName = isInstructor ? (user?.name || 'Instructor') : (roomHostName || 'Instructor');
+    const topicTitle = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session'))
+      ? currentLectureTopic
+      : 'Live Classroom Interactive Session';
+    const text = `🎓 SyncLearn Live Classroom Invitation\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👨‍🏫 Instructor: ${instructorName}\n📚 Topic: ${topicTitle}\n📅 Status: Live In Session Now\n\n🔗 Join Meeting Directly (Mobile / Tablet / PC):\n${inviteUrl}\n\n🆔 Meeting ID: ${formattedId}\n🔐 Security: Direct Verified Access\n\n👉 Click the link above to enter the whiteboard & video classroom on your phone or PC.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     navigator.clipboard.writeText(text)
       .then(() => showToast('📋 Mobile & Wi-Fi class invitation copied! Ready to paste in WhatsApp/Email.', 'success'))
       .catch(() => showToast('Failed to copy invitation', 'error'));
@@ -861,6 +875,10 @@ function ActiveRoomPage({
 
   // Speech transcription & Notes state
   const [transcription, setTranscription] = useState([]);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [manualNoteInput, setManualNoteInput] = useState('');
+  const speechRecognitionRef = useRef(null);
+  const isTranscribingRef = useRef(false);
 
   // Chat, Doubts & File Sharing
   const [messages, setMessages]           = useState([]);
@@ -962,13 +980,20 @@ function ActiveRoomPage({
         })();
         const totalAttendees = Math.max(participants.length, rosterCount, 1);
 
+        const validTopic = (currentLectureTopic && currentLectureTopic !== 'Live Classroom' && !currentLectureTopic.startsWith('Live Session') && currentLectureTopic !== 'Untitled Class')
+          ? currentLectureTopic
+          : (localStorage.getItem('synclearn_topic_' + cleanR) || localStorage.getItem('synclearn_topic_' + cleanR.replace(/-/g, '')) || 'SyncLearn Interactive Session');
+
+        const validHost = isInstructor ? (user?.name || 'Instructor') : (roomHostName || localStorage.getItem('synclearn_host_' + cleanR) || 'Instructor');
+
         const newRecord = {
           code: roomId,
-          title: `Live Session (${roomId})`,
+          title: validTopic,
+          topic: validTopic,
           date: 'Today',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           students: totalAttendees,
-          instructor: isInstructor ? (user?.name || 'You') : (roomHostName || 'Instructor')
+          instructor: validHost
         };
         const updated = [newRecord, ...existing.filter(s => s.code !== roomId)].slice(0, 10);
         localStorage.setItem(userKey, JSON.stringify(updated));
@@ -976,7 +1001,7 @@ function ActiveRoomPage({
     } catch (e) {
       console.warn('Session auto-record error:', e);
     }
-  }, [roomId, isInstructor, user, participants.length]);
+  }, [roomId, isInstructor, user, participants.length, currentLectureTopic, roomHostName]);
 
   // WebRTC & Socket init
   useEffect(() => {
@@ -1894,6 +1919,96 @@ function ActiveRoomPage({
       showToast('Failed to export PDF notes', 'error');
     }
   };
+
+  // ─── Speech-to-Text Recognition & Real-time Lecture Note Broadcasting ───
+  const handleToggleSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast('⚠️ Speech recognition is not supported in this browser. You can type notes directly below!', 'info');
+      return;
+    }
+
+    if (isTranscribing) {
+      isTranscribingRef.current = false;
+      setIsTranscribing(false);
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch(e) {}
+      }
+      showToast('⏸️ Speech transcription paused.', 'info');
+    } else {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+          const current = event.resultIndex;
+          const transcriptText = event.results[current]?.[0]?.transcript?.trim();
+          if (transcriptText) {
+            const newEntry = {
+              id: 'trans-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+              speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
+              text: transcriptText,
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setTranscription(prev => [...prev, newEntry]);
+            socket.emit('send-transcription', { roomId, entry: newEntry });
+          }
+        };
+
+        recognition.onerror = (err) => {
+          console.warn('Speech recognition notice:', err);
+          if (err.error === 'not-allowed') {
+            showToast('Microphone access denied for speech recognition.', 'error');
+            isTranscribingRef.current = false;
+            setIsTranscribing(false);
+          }
+        };
+
+        recognition.onend = () => {
+          if (isTranscribingRef.current) {
+            try { recognition.start(); } catch(e) {}
+          }
+        };
+
+        recognition.start();
+        speechRecognitionRef.current = recognition;
+        isTranscribingRef.current = true;
+        setIsTranscribing(true);
+        showToast('🎙️ Live speech transcription started! Spoken words will be transcribed as notes.', 'success');
+      } catch (err) {
+        console.error('Speech recognition start error:', err);
+        showToast('Speech recognition unavailable: ' + (err.message || 'Error'), 'error');
+        setIsTranscribing(false);
+      }
+    }
+  };
+
+  const handleAddManualNote = (e) => {
+    if (e) e.preventDefault();
+    if (!manualNoteInput.trim()) return;
+    const newEntry = {
+      id: 'manual-' + Date.now(),
+      speaker: user?.name || (isInstructor ? 'Instructor' : 'Student'),
+      text: manualNoteInput.trim(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setTranscription(prev => [...prev, newEntry]);
+    socket.emit('send-transcription', { roomId, entry: newEntry });
+    setManualNoteInput('');
+    showToast('📝 Note added to live lecture notes!');
+  };
+
+  // Clean up speech recognition on component unmount
+  useEffect(() => {
+    return () => {
+      isTranscribingRef.current = false;
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch(e) {}
+      }
+    };
+  }, []);
 
   const iceServersConfig = {
     iceServers: [
@@ -3042,35 +3157,112 @@ function ActiveRoomPage({
                 <div className="notes-container">
                   <div className="notes-header-bar">
                     <div className="notes-title-group">
-                      <span>🎙️ Live Transcription</span>
-                      <span className="badge-pulse-recording">● Active</span>
+                      <span className="notes-header-title">🎙️ Live Notes</span>
+                      {isTranscribing ? (
+                        <span className="badge-pulse-recording">● Recording Voice</span>
+                      ) : (
+                        <span className="badge-pulse-idle">○ Voice Paused</span>
+                      )}
                     </div>
-                    {transcription.length > 0 && (
-                      <button className="download-pdf-btn" onClick={downloadNotesPDF} title="Download verified lecture PDF notes">
-                        📄 Export Notes PDF
+                    <div className="notes-header-actions">
+                      <button
+                        type="button"
+                        className={`notes-record-toggle-btn ${isTranscribing ? 'recording' : ''}`}
+                        onClick={handleToggleSpeechRecognition}
+                        title={isTranscribing ? "Pause voice transcription" : "Start transcribing microphone speech live"}
+                      >
+                        {isTranscribing ? '⏹️ Stop Mic' : '🎙️ Start Mic'}
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        className="notes-export-btn notes-txt-btn"
+                        onClick={downloadNotesTXT}
+                        title="Download notes as TXT file"
+                        disabled={transcription.length === 0}
+                      >
+                        📝 TXT
+                      </button>
+                      <button
+                        type="button"
+                        className="notes-export-btn notes-pdf-btn"
+                        onClick={downloadNotesPDF}
+                        title="Export verified lecture PDF notes"
+                        disabled={transcription.length === 0}
+                      >
+                        📄 PDF
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Quick Note Manual Entry */}
+                  <form className="notes-manual-input-bar" onSubmit={handleAddManualNote}>
+                    <input
+                      type="text"
+                      className="notes-input-field"
+                      placeholder="Type a key lecture note or highlight..."
+                      value={manualNoteInput}
+                      onChange={(e) => setManualNoteInput(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      className="notes-add-btn"
+                      disabled={!manualNoteInput.trim()}
+                      title="Add note to live notes board"
+                    >
+                      + Add
+                    </button>
+                  </form>
 
                   <div className="notes-feed">
                     {transcription.length === 0 ? (
                       <div className="notes-empty-state">
                         <span className="empty-icon">🎙️</span>
-                        <p className="empty-title">Waiting for speech...</p>
-                        <p className="empty-sub">Microphone audio will automatically be transcribed into lecture notes here.</p>
+                        <p className="empty-title">Waiting for lecture notes...</p>
+                        <p className="empty-sub">
+                          Click <strong>"🎙️ Start Mic"</strong> to transcribe spoken lecture audio automatically in real time, or type bullet points in the input box above!
+                        </p>
+                        <button
+                          type="button"
+                          className="notes-start-quick-btn"
+                          onClick={handleToggleSpeechRecognition}
+                        >
+                          🎙️ Start Speech Transcription
+                        </button>
                       </div>
                     ) : (
-                      transcription.map((item) => (
-                        <div key={item.id} className="note-card">
-                          <div className="note-meta">
-                            <span className="note-speaker-badge">
-                              {item.speaker?.includes('Instructor') ? '👨‍🏫' : '👤'} {item.speaker}
-                            </span>
-                            <span className="note-time-badge">{item.time}</span>
+                      <>
+                        {transcription.map((item) => (
+                          <div key={item.id} className="note-card">
+                            <div className="note-meta">
+                              <span className="note-speaker-badge">
+                                {item.speaker?.includes('Instructor') ? '👨‍🏫' : '👤'} {item.speaker}
+                              </span>
+                              <div className="note-meta-right">
+                                <span className="note-time-badge">{item.time}</span>
+                                <button
+                                  type="button"
+                                  className="note-copy-btn"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(item.text);
+                                    showToast('📋 Copied note to clipboard!', 'info');
+                                  }}
+                                  title="Copy note"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+                            <p className="note-text">{item.text}</p>
                           </div>
-                          <p className="note-text">{item.text}</p>
+                        ))}
+                        <div className="notes-footer-summary">
+                          <span>{transcription.length} note{transcription.length > 1 ? 's' : ''} captured</span>
+                          <div className="notes-footer-btns">
+                            <button type="button" onClick={downloadNotesTXT}>Export TXT</button>
+                            <button type="button" onClick={downloadNotesPDF}>Export PDF</button>
+                          </div>
                         </div>
-                      ))
+                      </>
                     )}
                   </div>
                 </div>
@@ -3894,18 +4086,18 @@ function ActiveRoomPage({
 
                 {/* 1. Mobile & Wi-Fi Shareable Link */}
                 <div className="zoom-info-field-group">
-                  <span className="zoom-info-field-title" style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="zoom-info-field-title" style={{ color: '#22c55e', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
                     <span>📱 Mobile / Wi-Fi Link</span>
-                    <span style={{ fontSize: '0.62rem', background: 'rgba(34, 197, 94, 0.25)', color: '#4ade80', padding: '1px 5px', borderRadius: '4px' }}>Shareable</span>
+                    <span style={{ fontSize: '0.62rem', background: 'rgba(34, 197, 94, 0.25)', color: '#16a34a', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Shareable</span>
                   </span>
                   <div className="zoom-info-field-value-row">
-                    <span className="zoom-info-field-val" style={{ fontSize: '0.68rem', wordBreak: 'break-all', color: '#86efac' }}>
+                    <span className="zoom-info-field-val zoom-info-green-link" style={{ fontSize: '0.72rem', wordBreak: 'break-all', fontWeight: 700 }}>
                       {getShareableLink(false)}
                     </span>
                     <button
                       type="button"
                       className="zoom-info-copy-btn"
-                      style={{ background: 'rgba(34, 197, 94, 0.2)', borderColor: '#22c55e', color: '#4ade80' }}
+                      style={{ background: 'rgba(34, 197, 94, 0.2)', borderColor: '#22c55e', color: '#16a34a', fontWeight: 700 }}
                       onClick={() => copyInviteLink(false)}
                       title="Copy Mobile / Wi-Fi Link for WhatsApp / SMS"
                     >

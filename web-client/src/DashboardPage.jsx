@@ -529,6 +529,7 @@ function InstructorDashboard({
   const isGenericTitle = (value) =>
     !value?.trim() ||
     /^Live Session(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
+    /^Live Classroom(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
     /^Untitled Class$/i.test(value.trim());
 
   const topic = !isGenericTitle(storedTopic)
@@ -775,6 +776,7 @@ function StudentDashboard({
                     const isGenericTitle = (value) =>
                       !value?.trim() ||
                       /^Live Session(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
+                      /^Live Classroom(?:\s*\([^)]*\))?$/i.test(value.trim()) ||
                       /^Untitled Class$/i.test(value.trim());
 
                     const topic = !isGenericTitle(storedTopic)
@@ -787,7 +789,13 @@ function StudentDashboard({
                             ? s.topic.trim()
                             : "Untitled Class";
 
-                    const instructorName = remoteTopics[roomCode]?.instructorName || s.instructor || 'Instructor';
+                    const storedHost = localStorage.getItem('synclearn_host_' + roomCode) || 
+                                       localStorage.getItem('synclearn_host_' + roomCode.replace(/-/g, ''));
+                    const instructorName = (remoteTopics[roomCode]?.instructorName && remoteTopics[roomCode].instructorName !== 'Instructor')
+                      ? remoteTopics[roomCode].instructorName
+                      : (storedHost && storedHost !== 'Instructor')
+                        ? storedHost
+                        : (s.instructor && s.instructor !== 'Instructor' ? s.instructor : 'Instructor');
 
                     let lectureRec = remoteLectures[s.code] || (s.recordedLecture ? { name: s.recordedLecture, size: s.recordedLectureSize, url: s.recordedLectureUrl } : null);
                     if (!lectureRec) {

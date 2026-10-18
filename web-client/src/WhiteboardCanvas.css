@@ -591,6 +591,44 @@
   border-bottom: 1px solid rgba(56, 189, 248, 0.2);
 }
 
+.wb-typing-title {
+  margin: 0 !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+}
+
+.wb-typing-subtitle {
+  font-size: 0.72rem !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] .wb-typing-panel {
+  background: #ffffff !important;
+  border-right: 1.5px solid rgba(8, 145, 178, 0.25) !important;
+  box-shadow: 4px 0 24px rgba(8, 145, 178, 0.12) !important;
+}
+
+[data-theme="light"] .wb-typing-header {
+  border-bottom: 1px solid rgba(8, 145, 178, 0.2) !important;
+}
+
+[data-theme="light"] .wb-typing-title {
+  color: #042f2e !important;
+}
+
+[data-theme="light"] .wb-typing-subtitle {
+  color: #0e4252 !important;
+}
+
+[data-theme="dark"] .wb-typing-title {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .wb-typing-subtitle {
+  color: #94a3b8 !important;
+}
+
 .wb-export-notes-btn {
   display: inline-flex;
   align-items: center;

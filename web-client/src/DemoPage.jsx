@@ -103,16 +103,16 @@ function DemoPage({ onNavigate, theme, onToggleTheme }) {
       {/* Navbar */}
       <nav className="demo-nav">
         <div className="logo-container">
-         <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
-                   <img
-                     src={logoImg}
-                     alt="SyncLearn Logo"
-                     style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
-                   />
-                   <span className="logo-text">SyncLearn</span>
-                 </button> 
+          <button type="button" className="auth-back-btn" onClick={() => onNavigate && onNavigate('home')}>
+            <img
+              src={logoImg}
+              alt="SyncLearn Logo"
+              style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', border: '2px solid #06b6d4' }}
+            />
+            <span className="logo-text">SyncLearn</span>
+          </button> 
         </div>
-        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+        <div className="demo-nav-actions">
           <button className="back-btn" onClick={() => onNavigate && onNavigate('home')}>
             ← Back to Home
           </button>
