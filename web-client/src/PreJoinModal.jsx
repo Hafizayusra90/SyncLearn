@@ -217,6 +217,19 @@ function PreJoinModal({
       return;
     }
 
+    // Unlock Web Audio immediately on user gesture so mobile & desktop speakers are live
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        if (!window.__synclearnGlobalAudioCtx || window.__synclearnGlobalAudioCtx.state === 'closed') {
+          window.__synclearnGlobalAudioCtx = new AudioCtx();
+        }
+        if (window.__synclearnGlobalAudioCtx.state === 'suspended') {
+          window.__synclearnGlobalAudioCtx.resume().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     // Pass active preview stream directly to ActiveRoomPage so mobile hardware does not lock up
     const activeStream = streamRef.current;
     streamRef.current = null;

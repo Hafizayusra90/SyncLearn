@@ -23,6 +23,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
 
   const audioCtxRef = useRef(null);
   const sourceNodeRef = useRef(null);
+  const gainNodeRef = useRef(null);
 
   useEffect(() => {
     let animId;
@@ -59,27 +60,53 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
         }
       }
 
-      // Live voice detection (Web Audio Analyser for speaking indicator ONLY)
-      // Note: Never connect to ctx.destination to avoid locking mobile audio hardware or echo
+      // Live voice detection & Direct Hardware Speaker Output via Web Audio API
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx && stream.getAudioTracks().length > 0) {
-          if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-            audioCtxRef.current = new AudioCtx();
-          }
-          const ctx = audioCtxRef.current;
+          const ctx = (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state !== 'closed')
+            ? window.__synclearnGlobalAudioCtx
+            : (!audioCtxRef.current || audioCtxRef.current.state === 'closed' ? new AudioCtx() : audioCtxRef.current);
+          audioCtxRef.current = ctx;
+
           if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+            ctx.resume().then(() => setAudioBlocked(false)).catch(() => {});
+          }
+
+          // Disconnect any existing nodes if stream is being re-initialized
+          if (sourceNodeRef.current) {
+            try { sourceNodeRef.current.disconnect(); } catch (e) {}
+          }
+          if (gainNodeRef.current) {
+            try { gainNodeRef.current.disconnect(); } catch (e) {}
+          }
+          if (animId) {
+            cancelAnimationFrame(animId);
           }
 
           const analyser = ctx.createAnalyser();
           analyser.fftSize = 128;
           analyser.smoothingTimeConstant = 0.3;
 
-          // Store source in ref to prevent V8 garbage collection!
+          // Connect stream to analyser for live speaking detection
           const source = ctx.createMediaStreamSource(stream);
           sourceNodeRef.current = source;
           source.connect(analyser);
+
+          // Route directly to device hardware speakers via GainNode for real-time sound output
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = Math.max(0, Math.min(1, peerVolume / 100));
+          gainNodeRef.current = gainNode;
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+
+          // Set sink ID on AudioContext if supported
+          try {
+            const prefSpeaker = localStorage.getItem('synclearn_preferred_speaker');
+            if (prefSpeaker && prefSpeaker !== 'default' && typeof ctx.setSinkId === 'function') {
+              ctx.setSinkId(prefSpeaker).catch(() => {});
+            }
+          } catch (e) {}
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           const detectVoice = () => {
@@ -93,9 +120,14 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
             animId = requestAnimationFrame(detectVoice);
           };
           detectVoice();
+          setAudioBlocked(false);
         }
       } catch (e) {
-        console.warn('Remote audio analyser error:', e);
+        console.warn('Remote audio analyser & speaker routing error:', e);
+        if (audioRef.current) {
+          audioRef.current.muted = false;
+          audioRef.current.play().then(() => setAudioBlocked(false)).catch(() => setAudioBlocked(true));
+        }
       }
     };
 
@@ -132,21 +164,35 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
         try { sourceNodeRef.current.disconnect(); } catch (e) {}
         sourceNodeRef.current = null;
       }
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+      if (gainNodeRef.current) {
+        try { gainNodeRef.current.disconnect(); } catch (e) {}
+        gainNodeRef.current = null;
+      }
+      if (audioCtxRef.current && audioCtxRef.current !== window.__synclearnGlobalAudioCtx && audioCtxRef.current.state !== 'closed') {
         try { audioCtxRef.current.close(); } catch(e) {}
       }
     };
   }, [peer]);
 
-  // Adjust volume dynamically across HTML Audio
+  // Adjust volume dynamically across HTML Audio and Web Audio gain node
   useEffect(() => {
     const vol = Math.max(0, Math.min(1, peerVolume / 100));
     if (audioRef.current) {
       audioRef.current.volume = vol;
     }
+    if (gainNodeRef.current) {
+      try {
+        gainNodeRef.current.gain.value = vol;
+      } catch (e) {}
+    }
   }, [peerVolume]);
 
   const handleUnblockAudio = () => {
+    try {
+      if (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state === 'suspended') {
+        window.__synclearnGlobalAudioCtx.resume().catch(() => {});
+      }
+    } catch (e) {}
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => {});
     }
@@ -166,6 +212,11 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   // Continuous user interaction unblocker for mobile touch and desktop click
   useEffect(() => {
     const unlockAudio = () => {
+      try {
+        if (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state === 'suspended') {
+          window.__synclearnGlobalAudioCtx.resume().catch(() => {});
+        }
+      } catch (e) {}
       if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume().then(() => setAudioBlocked(false)).catch(() => {});
       }
@@ -2315,12 +2366,19 @@ function ActiveRoomPage({
             const pc = p.peer?._pc;
             if (pc) {
               const sender = pc.getSenders()?.find(s => (s.track && s.track.kind === 'audio') || s.kind === 'audio');
-              if (sender && sender.track !== track) {
-                sender.replaceTrack(track);
+              if (sender) {
+                if (sender.track !== track) {
+                  sender.replaceTrack(track);
+                }
+              } else if (p.peer?.addTrack) {
+                p.peer.addTrack(track, userStreamRef.current);
               }
             }
           } catch (e) {}
         });
+        if (userStreamRef.current) {
+          setUserStream(new MediaStream(userStreamRef.current.getTracks()));
+        }
       }
       setMicOn(true);
       socket.emit('media-state-change', { roomId: cleanRoomId(roomId), videoOn, micOn: true });
