@@ -608,62 +608,32 @@ async function acquireMediaStream(userName, isInstructor) {
   let stream = null;
   let hasRealVideo = false;
 
-  // 1. Try real video + audio (advanced audio constraints, then fallback to basic)
+  // 1. Try real video + audio
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: true,
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      audio: true
     });
     hasRealVideo = true;
     return { stream, hasRealVideo };
-  } catch (errVideoAdv) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-      hasRealVideo = true;
-      return { stream, hasRealVideo };
-    } catch (errVideo) {
-      console.warn('Physical camera unavailable (may be in use or permission pending):', errVideo);
-    }
+  } catch (errVideo) {
+    console.warn('Physical camera unavailable (may be in use or permission pending):', errVideo);
   }
 
-  // 2. Try audio only (advanced constraints first, then basic boolean fallback with retry)
-  const prefMic = localStorage.getItem('synclearn_preferred_mic');
-  const micConstraint = (prefMic && prefMic !== 'default' && prefMic !== 'system')
-    ? { deviceId: { exact: prefMic }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-
+  // 2. Try audio only
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraint });
-  } catch (errAudioAdv) {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (errAudio) {
+    console.warn('Hardware microphone unavailable or permission denied:', errAudio);
+    stream = new MediaStream();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (errAudio) {
-      // If hardware microphone was still busy releasing, wait 300ms and retry
-      if (errAudio.name === 'NotReadableError' || errAudio.name === 'AbortError') {
-        try {
-          await new Promise(res => setTimeout(res, 300));
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (retryErr) {
-          console.warn('Microphone retry failed:', retryErr);
-        }
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const actx = new AudioCtx();
+        const dst = actx.createMediaStreamDestination();
+        dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
       }
-
-      if (!stream) {
-        console.warn('Hardware microphone unavailable or permission denied:', errAudio);
-        stream = new MediaStream();
-        try {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) {
-            const actx = new AudioCtx();
-            const dst = actx.createMediaStreamDestination();
-            dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
-          }
-        } catch (e) {}
-      }
-    }
+    } catch (e) {}
   }
 
   // 3. Attach fallback canvas video track so WebRTC simple-peer video channel is established
@@ -1615,6 +1585,9 @@ function ActiveRoomPage({
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
         audioCtx = new AudioCtx();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 128;
         analyser.smoothingTimeConstant = 0.4;

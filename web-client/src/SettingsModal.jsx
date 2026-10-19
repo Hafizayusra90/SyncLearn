@@ -251,10 +251,20 @@ function SettingsModal({
 
     let isMounted = true;
     const constraints = {
-      audio: selectedMicId && selectedMicId !== 'default' ? { deviceId: { exact: selectedMicId } } : true
+      audio: selectedMicId && selectedMicId !== 'default' && selectedMicId !== 'system'
+        ? { deviceId: { ideal: selectedMicId } }
+        : true
     };
 
-    navigator.mediaDevices.getUserMedia(constraints)
+    const getMicStream = async () => {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (errAdv) {
+        return await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    };
+
+    getMicStream()
       .then(stream => {
         if (!isMounted) {
           stream.getTracks().forEach(t => t.stop());
