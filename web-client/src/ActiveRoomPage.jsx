@@ -21,58 +21,76 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const isInstructorPeer = peerInfo?.userRole === 'instructor';
   const peerName = peerInfo?.userName || (isInstructorPeer ? 'Instructor' : 'Peer');
 
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+
   useEffect(() => {
-    let audioCtx;
-    let analyser;
     let animId;
 
     const setupStream = (stream) => {
       if (!stream) return;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
       }
+
       if (audioRef.current) {
         audioRef.current.srcObject = stream;
-        audioRef.current.volume = peerVolume / 100;
+        audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.muted = false;
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => setAudioBlocked(false))
             .catch(err => {
-              console.warn('Remote peer audio playback waiting for interaction:', err);
+              console.warn('Audio playback waiting for user touch/click:', err);
               setAudioBlocked(true);
             });
         }
       }
 
-      // Live voice detection on remote stream
+      // Live voice detection & Direct Hardware Speaker Output
       try {
-        if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
-          if (stream.getAudioTracks().length > 0) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 128;
-            const source = audioCtx.createMediaStreamSource(stream);
-            source.connect(analyser);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-            const detectVoice = () => {
-              if (analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                const avg = sum / dataArray.length;
-                setIsSpeaking(avg > 18);
-              }
-              animId = requestAnimationFrame(detectVoice);
-            };
-            detectVoice();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx && stream.getAudioTracks().length > 0) {
+          if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+            audioCtxRef.current = new AudioCtx();
           }
+          const ctx = audioCtxRef.current;
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.3;
+
+          const source = ctx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          // Connect directly to speakers through GainNode
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = Math.max(0, Math.min(1, peerVolume / 100));
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          gainNodeRef.current = gainNode;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const detectVoice = () => {
+            if (analyser) {
+              analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+              const avg = sum / dataArray.length;
+              setIsSpeaking(avg > 18);
+            }
+            animId = requestAnimationFrame(detectVoice);
+          };
+          detectVoice();
         }
       } catch (e) {
-        console.warn('Remote audio analyser error:', e);
+        console.warn('Remote audio setup error:', e);
       }
     };
 
@@ -87,21 +105,30 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       peer.removeListener('stream', setupStream);
       peer.removeAllListeners('track');
       if (animId) cancelAnimationFrame(animId);
-      if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        try { audioCtxRef.current.close(); } catch(e) {}
+      }
     };
   }, [peer]);
 
-  // Adjust volume dynamically without tearing down stream listeners
+  // Adjust volume dynamically across HTML Audio and Web Audio gain node
   useEffect(() => {
+    const vol = Math.max(0, Math.min(1, peerVolume / 100));
     if (audioRef.current) {
-      audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
+      audioRef.current.volume = vol;
+    }
+    if (gainNodeRef.current) {
+      try { gainNodeRef.current.gain.value = vol; } catch (e) {}
     }
   }, [peerVolume]);
 
   const handleUnblockAudio = () => {
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
     if (audioRef.current) {
       audioRef.current.muted = false;
-      audioRef.current.volume = 1.0;
+      audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
       audioRef.current.play()
         .then(() => setAudioBlocked(false))
         .catch(err => console.error('Play error:', err));
@@ -109,14 +136,18 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     if (videoRef.current) {
       videoRef.current.play().catch(() => {});
     }
+    setAudioBlocked(false);
   };
 
   // Continuous user interaction unblocker for mobile touch and desktop click
   useEffect(() => {
     const unlockAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().then(() => setAudioBlocked(false)).catch(() => {});
+      }
       if (audioRef.current && audioRef.current.srcObject) {
         audioRef.current.muted = false;
-        audioRef.current.volume = peerVolume / 100;
+        audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.play()
           .then(() => setAudioBlocked(false))
           .catch(() => {});
