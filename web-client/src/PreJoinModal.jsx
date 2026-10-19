@@ -217,11 +217,9 @@ function PreJoinModal({
       return;
     }
 
-    // Stop preview stream before transferring to ActiveRoomPage
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
+    // Pass active preview stream directly to ActiveRoomPage so mobile hardware does not lock up
+    const activeStream = streamRef.current;
+    streamRef.current = null;
 
     if (onJoin) {
       onJoin({
@@ -229,6 +227,7 @@ function PreJoinModal({
         micOn,
         videoOn,
         blurBackground,
+        initialStream: activeStream
       });
     }
   };

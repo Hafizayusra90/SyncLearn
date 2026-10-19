@@ -1236,6 +1236,81 @@
   display: none;
 }
 
+/* ── Hardware Audio Settings (Speaker & Mic) ── */
+.zoom-audio-test-btn {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .zoom-audio-test-btn {
+  background: #27272a;
+  color: #f1f5f9;
+  border-color: #3f3f46;
+}
+
+.zoom-audio-test-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+[data-theme="dark"] .zoom-audio-test-btn:hover:not(:disabled) {
+  background: #3f3f46;
+}
+
+.zoom-audio-test-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.zoom-audio-test-btn.active-testing {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  animation: pulseTesting 1s infinite alternate;
+}
+
+[data-theme="dark"] .zoom-audio-test-btn.active-testing {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: #ef4444;
+}
+
+@keyframes pulseTesting {
+  from { opacity: 0.8; }
+  to { opacity: 1; transform: scale(1.02); }
+}
+
+.zoom-audio-meter-wrap {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .zoom-audio-meter-wrap {
+  background: #27272a;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.zoom-audio-meter-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.08s ease-out;
+}
+
 /* ══════════════════════════════════════════════════════════════
    MOBILE RESPONSIVENESS (<= 768px)
    Transforms crowded 2-column layout into an intuitive mobile UI

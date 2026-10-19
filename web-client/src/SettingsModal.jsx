@@ -19,7 +19,11 @@ import {
   Trash2,
   Play,
   Square,
-  Download
+  Download,
+  Mic,
+  Volume2,
+  VolumeX,
+  Check
 } from 'lucide-react';
 import { isValidRealEmail, isValidRealName } from './utils/validation';
 import './SettingsModal.css';
@@ -79,6 +83,39 @@ function SettingsModal({
   const [isPlayingRingtone, setIsPlayingRingtone] = useState(false);
   const [playChatMessageSound, setPlayChatMessageSound] = useState(true);
   const [dndHoursEnabled, setDndHoursEnabled] = useState(false);
+
+  // ── Hardware Audio States (Microphone & Speaker) ──
+  const [audioInputs, setAudioInputs] = useState([]);
+  const [audioOutputs, setAudioOutputs] = useState([]);
+  const [selectedMicId, setSelectedMicId] = useState(() => {
+    return localStorage.getItem('synclearn_preferred_mic') || 'default';
+  });
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState(() => {
+    return localStorage.getItem('synclearn_preferred_speaker') || 'default';
+  });
+  const [speakerVolume, setSpeakerVolume] = useState(() => {
+    const s = localStorage.getItem('synclearn_speaker_volume');
+    return s !== null ? Number(s) : 85;
+  });
+  const [micVolume, setMicVolume] = useState(() => {
+    const s = localStorage.getItem('synclearn_mic_volume');
+    return s !== null ? Number(s) : 80;
+  });
+  const [autoGainControl, setAutoGainControl] = useState(true);
+  const [noiseSuppression, setNoiseSuppression] = useState(true);
+  const [echoCancellation, setEchoCancellation] = useState(true);
+
+  // Audio Testing states
+  const [isPlayingSpeakerTest, setIsPlayingSpeakerTest] = useState(false);
+  const [isTestingMic, setIsTestingMic] = useState(false);
+  const [micTestState, setMicTestState] = useState('idle'); // 'idle' | 'recording' | 'playing' | 'done'
+  const [micTestCountdown, setMicTestCountdown] = useState(3);
+  const [liveMicLevel, setLiveMicLevel] = useState(0);
+
+  const micMeterStreamRef = useRef(null);
+  const micMeterAudioCtxRef = useRef(null);
+  const micMeterAnimIdRef = useRef(null);
+  const micMeterSourceRef = useRef(null);
 
   // ── Accessibility States (Image 1) ──
   const [chatDisplaySize, setChatDisplaySize] = useState('100%');
@@ -158,6 +195,132 @@ function SettingsModal({
       }
     }
   }, [isOpen, user]);
+
+  // ── 1. Enumerate Audio Devices & Auto-Refresh on Change ──
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isSubscribed = true;
+    const fetchDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!isSubscribed) return;
+        const inputs = devices.filter(d => d.kind === 'audioinput');
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+
+        setAudioInputs(
+          inputs.length > 0
+            ? inputs
+            : [{ deviceId: 'default', label: 'Default Microphone' }]
+        );
+        setAudioOutputs(
+          outputs.length > 0
+            ? outputs
+            : [{ deviceId: 'default', label: 'Default Speakers / Headphones' }]
+        );
+      } catch (e) {
+        console.warn('Enumerate audio devices notice:', e);
+      }
+    };
+
+    fetchDevices();
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', fetchDevices);
+      return () => {
+        isSubscribed = false;
+        navigator.mediaDevices.removeEventListener('devicechange', fetchDevices);
+      };
+    }
+    return () => { isSubscribed = false; };
+  }, [isOpen]);
+
+  // ── 2. Live Microphone Level Meter (Web Audio Analyser) ──
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'audio') {
+      if (micMeterAnimIdRef.current) cancelAnimationFrame(micMeterAnimIdRef.current);
+      if (micMeterStreamRef.current) {
+        micMeterStreamRef.current.getTracks().forEach(t => t.stop());
+        micMeterStreamRef.current = null;
+      }
+      if (micMeterAudioCtxRef.current && micMeterAudioCtxRef.current.state !== 'closed') {
+        try { micMeterAudioCtxRef.current.close(); } catch(e) {}
+      }
+      setLiveMicLevel(0);
+      return;
+    }
+
+    let isMounted = true;
+    const constraints = {
+      audio: selectedMicId && selectedMicId !== 'default' ? { deviceId: { exact: selectedMicId } } : true
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(stream => {
+        if (!isMounted) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        micMeterStreamRef.current = stream;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+
+        const ctx = new AudioCtx();
+        micMeterAudioCtxRef.current = ctx;
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        const source = ctx.createMediaStreamSource(stream);
+        micMeterSourceRef.current = source;
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const updateLevel = () => {
+          if (!isMounted) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const avg = sum / dataArray.length;
+          const pct = Math.min(100, Math.round((avg / 128) * 100 * 1.6));
+          setLiveMicLevel(pct);
+          micMeterAnimIdRef.current = requestAnimationFrame(updateLevel);
+        };
+        updateLevel();
+      })
+      .catch(err => {
+        console.warn('Live mic level meter access:', err);
+      });
+
+    return () => {
+      isMounted = false;
+      if (micMeterAnimIdRef.current) cancelAnimationFrame(micMeterAnimIdRef.current);
+      if (micMeterStreamRef.current) {
+        micMeterStreamRef.current.getTracks().forEach(t => t.stop());
+        micMeterStreamRef.current = null;
+      }
+      if (micMeterAudioCtxRef.current && micMeterAudioCtxRef.current.state !== 'closed') {
+        try { micMeterAudioCtxRef.current.close(); } catch(e) {}
+      }
+      setLiveMicLevel(0);
+    };
+  }, [isOpen, activeTab, selectedMicId]);
+
+  // ── 3. Persist Audio Preferences to localStorage ──
+  useEffect(() => {
+    try {
+      localStorage.setItem('synclearn_preferred_mic', selectedMicId);
+      localStorage.setItem('synclearn_preferred_speaker', selectedSpeakerId);
+      localStorage.setItem('synclearn_speaker_volume', String(speakerVolume));
+      localStorage.setItem('synclearn_mic_volume', String(micVolume));
+      localStorage.setItem('synclearn_audio_settings', JSON.stringify({
+        selectedMicId,
+        selectedSpeakerId,
+        speakerVolume,
+        micVolume,
+        autoGainControl,
+        noiseSuppression,
+        echoCancellation
+      }));
+    } catch (e) {}
+  }, [selectedMicId, selectedSpeakerId, speakerVolume, micVolume, autoGainControl, noiseSuppression, echoCancellation]);
 
   if (!isOpen) return null;
 
@@ -264,6 +427,100 @@ function SettingsModal({
       setTimeout(() => setIsPlayingRingtone(false), 550);
     } catch {
       setIsPlayingRingtone(false);
+    }
+  };
+
+  // Test Speaker Chime (Pleasant multi-tone chord arpeggio)
+  const handleTestSpeaker = () => {
+    if (isPlayingSpeakerTest) return;
+    setIsPlayingSpeakerTest(true);
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const step = 0.16;
+      const now = ctx.currentTime;
+
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * step);
+        const gainVal = Math.max(0.05, Math.min(0.5, (speakerVolume / 100) * 0.35));
+        gain.gain.setValueAtTime(gainVal, now + idx * step);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * step + step + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * step);
+        osc.stop(now + idx * step + step + 0.2);
+      });
+
+      const totalMs = (notes.length * step + 0.35) * 1000;
+      setTimeout(() => {
+        setIsPlayingSpeakerTest(false);
+        try { ctx.close(); } catch (e) {}
+      }, totalMs);
+    } catch (err) {
+      console.warn('Speaker test error:', err);
+      setIsPlayingSpeakerTest(false);
+    }
+  };
+
+  // Test Microphone (Record 3 seconds and playback through speaker)
+  const handleTestMicrophone = async () => {
+    if (isTestingMic) return;
+    setIsTestingMic(true);
+    setMicTestState('recording');
+    setMicTestCountdown(3);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: selectedMicId && selectedMicId !== 'default' ? { deviceId: { exact: selectedMicId } } : true
+      });
+      const chunks = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.volume = Math.max(0, Math.min(1, speakerVolume / 100));
+        if (selectedSpeakerId && selectedSpeakerId !== 'default' && typeof audio.setSinkId === 'function') {
+          audio.setSinkId(selectedSpeakerId).catch(() => {});
+        }
+        setMicTestState('playing');
+        audio.play()
+          .then(() => {
+            audio.onended = () => {
+              setMicTestState('done');
+              setTimeout(() => {
+                setIsTestingMic(false);
+                setMicTestState('idle');
+              }, 1800);
+            };
+          })
+          .catch(() => {
+            setIsTestingMic(false);
+            setMicTestState('idle');
+          });
+      };
+      mr.start();
+
+      let seconds = 3;
+      const interval = setInterval(() => {
+        seconds -= 1;
+        setMicTestCountdown(seconds);
+        if (seconds <= 0) {
+          clearInterval(interval);
+          try { mr.stop(); } catch (e) {}
+        }
+      }, 1000);
+    } catch (err) {
+      console.warn('Microphone test error:', err);
+      setIsTestingMic(false);
+      setMicTestState('idle');
+      alert('Microphone access denied. Please allow microphone in your browser settings.');
     }
   };
 
@@ -585,33 +842,183 @@ function SettingsModal({
               </div>
             )}
 
-            {/* ── 3. Audio Tab ── */}
+            {/* ── 3. Audio Tab (Real Hardware Microphone & Speaker Settings) ── */}
             {activeTab === 'audio' && (
               <div>
                 <h2 className="zoom-content-header">Audio Settings</h2>
+
+                {/* Speaker Card */}
                 <div className="zoom-setting-section-card">
-                  <div className="zoom-section-card-title">Microphone & Speaker</div>
-                  <div className="zoom-form-row" style={{ marginBottom: '10px' }}>
-                    <label className="zoom-form-label">Speaker</label>
-                    <select className="zoom-form-input">
-                      <option>Speakers (Realtek(R) Audio)</option>
-                      <option>Same as System</option>
+                  <div className="zoom-section-card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Volume2 size={16} color="#0e71eb" /> Speaker
+                    </span>
+                    <button
+                      type="button"
+                      className="zoom-audio-test-btn"
+                      onClick={handleTestSpeaker}
+                      disabled={isPlayingSpeakerTest}
+                    >
+                      {isPlayingSpeakerTest ? '🔊 Playing Chime...' : 'Test Speaker'}
+                    </button>
+                  </div>
+
+                  <div className="zoom-form-row" style={{ marginTop: '10px' }}>
+                    <label className="zoom-form-label">Output Device</label>
+                    <select
+                      className="zoom-form-input"
+                      value={selectedSpeakerId}
+                      onChange={e => setSelectedSpeakerId(e.target.value)}
+                    >
+                      <option value="default">Same as System / Built-in Speakers</option>
+                      {audioOutputs.filter(o => o.deviceId !== 'default').map(out => (
+                        <option key={out.deviceId} value={out.deviceId}>
+                          {out.label || `Speaker (${out.deviceId.slice(0, 8)})`}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  <div className="zoom-form-row" style={{ marginBottom: '14px' }}>
-                    <label className="zoom-form-label">Microphone</label>
-                    <select className="zoom-form-input">
-                      <option>Microphone Array (Realtek(R) Audio)</option>
-                      <option>Same as System</option>
+
+                  <div className="zoom-form-row" style={{ marginTop: '10px' }}>
+                    <label className="zoom-form-label">Speaker Volume</label>
+                    <div className="zoom-volume-slider-row" style={{ width: '100%' }}>
+                      <VolumeX size={15} color="#94a3b8" />
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={speakerVolume}
+                        onChange={e => setSpeakerVolume(Number(e.target.value))}
+                        className="zoom-range-input"
+                      />
+                      <Volume2 size={15} color="#0e71eb" />
+                      <span style={{ minWidth: '38px', fontSize: '0.84rem', fontWeight: 600, color: '#0e71eb' }}>
+                        {speakerVolume}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Microphone Card */}
+                <div className="zoom-setting-section-card">
+                  <div className="zoom-section-card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Mic size={16} color="#22c55e" /> Microphone
+                    </span>
+                    <button
+                      type="button"
+                      className={`zoom-audio-test-btn ${isTestingMic ? 'active-testing' : ''}`}
+                      onClick={handleTestMicrophone}
+                      disabled={isTestingMic}
+                    >
+                      {micTestState === 'recording'
+                        ? `🔴 Speak now (${micTestCountdown}s)...`
+                        : micTestState === 'playing'
+                        ? '🔊 Playing back...'
+                        : micTestState === 'done'
+                        ? '✅ Mic OK!'
+                        : 'Test Mic'}
+                    </button>
+                  </div>
+
+                  <div className="zoom-form-row" style={{ marginTop: '10px' }}>
+                    <label className="zoom-form-label">Input Device</label>
+                    <select
+                      className="zoom-form-input"
+                      value={selectedMicId}
+                      onChange={e => setSelectedMicId(e.target.value)}
+                    >
+                      <option value="default">Built-in Microphone / Default</option>
+                      {audioInputs.filter(i => i.deviceId !== 'default').map(inp => (
+                        <option key={inp.deviceId} value={inp.deviceId}>
+                          {inp.label || `Microphone (${inp.deviceId.slice(0, 8)})`}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  <button
-                    type="button"
-                    className="zoom-btn-upload-photo"
-                    onClick={() => alert('Audio Test Chime Played!')}
-                  >
-                    Test Speaker & Microphone
-                  </button>
+
+                  {/* Live Input Level Meter */}
+                  <div className="zoom-form-row" style={{ marginTop: '10px' }}>
+                    <label className="zoom-form-label">Input Level</label>
+                    <div className="zoom-audio-meter-wrap">
+                      <div
+                        className="zoom-audio-meter-bar"
+                        style={{
+                          width: `${liveMicLevel}%`,
+                          background: liveMicLevel > 70 ? 'linear-gradient(90deg, #22c55e 60%, #eab308 80%, #ef4444 100%)' : '#22c55e'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="zoom-form-row" style={{ marginTop: '10px' }}>
+                    <label className="zoom-form-label">Mic Sensitivity / Volume</label>
+                    <div className="zoom-volume-slider-row" style={{ width: '100%' }}>
+                      <VolumeX size={15} color="#94a3b8" />
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={micVolume}
+                        onChange={e => setMicVolume(Number(e.target.value))}
+                        className="zoom-range-input"
+                      />
+                      <Volume2 size={15} color="#22c55e" />
+                      <span style={{ minWidth: '38px', fontSize: '0.84rem', fontWeight: 600, color: '#22c55e' }}>
+                        {micVolume}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Advanced Audio Processing Card */}
+                <div className="zoom-setting-section-card">
+                  <div className="zoom-section-card-title">Audio Processing</div>
+                  
+                  <div className="zoom-toggle-row">
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Automatically adjust microphone volume</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Equalizes quiet and loud speaking automatically (Auto Gain Control)</div>
+                    </div>
+                    <label className="zoom-switch">
+                      <input
+                        type="checkbox"
+                        checked={autoGainControl}
+                        onChange={e => setAutoGainControl(e.target.checked)}
+                      />
+                      <span className="zoom-switch-slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="zoom-toggle-row" style={{ marginTop: '10px' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Suppress background noise</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Filters fan, keyboard, and room ambient noise</div>
+                    </div>
+                    <label className="zoom-switch">
+                      <input
+                        type="checkbox"
+                        checked={noiseSuppression}
+                        onChange={e => setNoiseSuppression(e.target.checked)}
+                      />
+                      <span className="zoom-switch-slider"></span>
+                    </label>
+                  </div>
+
+                  <div className="zoom-toggle-row" style={{ marginTop: '10px' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>Echo cancellation</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Prevents feedback loops when using speakers without headphones</div>
+                    </div>
+                    <label className="zoom-switch">
+                      <input
+                        type="checkbox"
+                        checked={echoCancellation}
+                        onChange={e => setEchoCancellation(e.target.checked)}
+                      />
+                      <span className="zoom-switch-slider"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
             )}

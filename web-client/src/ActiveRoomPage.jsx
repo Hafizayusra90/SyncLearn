@@ -22,7 +22,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
   const peerName = peerInfo?.userName || (isInstructorPeer ? 'Instructor' : 'Peer');
 
   const audioCtxRef = useRef(null);
-  const gainNodeRef = useRef(null);
+  const sourceNodeRef = useRef(null);
 
   useEffect(() => {
     let animId;
@@ -39,6 +39,15 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
         audioRef.current.srcObject = stream;
         audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.muted = false;
+        
+        // Apply preferred speaker if setSinkId is supported
+        try {
+          const prefSpeaker = localStorage.getItem('synclearn_preferred_speaker');
+          if (prefSpeaker && prefSpeaker !== 'default' && typeof audioRef.current.setSinkId === 'function') {
+            audioRef.current.setSinkId(prefSpeaker).catch(() => {});
+          }
+        } catch (e) {}
+
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
@@ -50,7 +59,8 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
         }
       }
 
-      // Live voice detection & Direct Hardware Speaker Output
+      // Live voice detection (Web Audio Analyser for speaking indicator ONLY)
+      // Note: Never connect to ctx.destination to avoid locking mobile audio hardware or echo
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx && stream.getAudioTracks().length > 0) {
@@ -66,15 +76,10 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           analyser.fftSize = 128;
           analyser.smoothingTimeConstant = 0.3;
 
+          // Store source in ref to prevent V8 garbage collection!
           const source = ctx.createMediaStreamSource(stream);
+          sourceNodeRef.current = source;
           source.connect(analyser);
-
-          // Connect directly to speakers through GainNode
-          const gainNode = ctx.createGain();
-          gainNode.gain.value = Math.max(0, Math.min(1, peerVolume / 100));
-          source.connect(gainNode);
-          gainNode.connect(ctx.destination);
-          gainNodeRef.current = gainNode;
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           const detectVoice = () => {
@@ -90,12 +95,30 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           detectVoice();
         }
       } catch (e) {
-        console.warn('Remote audio setup error:', e);
+        console.warn('Remote audio analyser error:', e);
       }
     };
 
     peer.on('stream', setupStream);
-    peer.on('track', (track, stream) => setupStream(stream));
+    peer.on('track', (track, stream) => {
+      if (stream) setupStream(stream);
+    });
+
+    // Also hook directly into underlying RTCPeerConnection if available
+    try {
+      const pc = peer?._pc;
+      if (pc) {
+        pc.ontrack = (event) => {
+          if (event.streams && event.streams[0]) {
+            setupStream(event.streams[0]);
+          }
+        };
+        const remoteStreams = pc.getRemoteStreams ? pc.getRemoteStreams() : [];
+        if (remoteStreams && remoteStreams[0]) {
+          setupStream(remoteStreams[0]);
+        }
+      }
+    } catch (e) {}
 
     if (peer._remoteStreams?.[0]) {
       setupStream(peer._remoteStreams[0]);
@@ -105,20 +128,21 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
       peer.removeListener('stream', setupStream);
       peer.removeAllListeners('track');
       if (animId) cancelAnimationFrame(animId);
+      if (sourceNodeRef.current) {
+        try { sourceNodeRef.current.disconnect(); } catch (e) {}
+        sourceNodeRef.current = null;
+      }
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         try { audioCtxRef.current.close(); } catch(e) {}
       }
     };
   }, [peer]);
 
-  // Adjust volume dynamically across HTML Audio and Web Audio gain node
+  // Adjust volume dynamically across HTML Audio
   useEffect(() => {
     const vol = Math.max(0, Math.min(1, peerVolume / 100));
     if (audioRef.current) {
       audioRef.current.volume = vol;
-    }
-    if (gainNodeRef.current) {
-      try { gainNodeRef.current.gain.value = vol; } catch (e) {}
     }
   }, [peerVolume]);
 
@@ -185,8 +209,7 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           opacity: isVideoOn ? 1 : 0,
           position: isVideoOn ? 'relative' : 'absolute',
           inset: 0,
-          pointerEvents: isVideoOn ? 'auto' : 'none',
-          visibility: isVideoOn ? 'visible' : 'hidden'
+          pointerEvents: isVideoOn ? 'auto' : 'none'
         }}
       />
       <audio autoPlay playsInline ref={audioRef} />
@@ -297,21 +320,24 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           onClick={handleUnblockAudio}
           style={{
             position: 'absolute',
-            bottom: 36,
+            top: 10,
             right: 10,
-            zIndex: 10,
-            background: '#ef4444',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '5px 10px',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
+            zIndex: 30,
+            background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+            color: '#ffffff',
+            border: '2px solid #86efac',
+            borderRadius: 8,
+            padding: '7px 14px',
+            fontSize: '0.82rem',
+            fontWeight: 800,
             cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.5)'
+            boxShadow: '0 4px 15px rgba(22, 163, 74, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
           }}
         >
-          🔊 Click to Hear Peer
+          🔊 Tap to Turn On Sound
         </button>
       )}
     </div>
@@ -552,25 +578,40 @@ async function acquireMediaStream(userName, isInstructor) {
     }
   }
 
-  // 2. Try audio only (advanced constraints first, then basic boolean fallback)
+  // 2. Try audio only (advanced constraints first, then basic boolean fallback with retry)
+  const prefMic = localStorage.getItem('synclearn_preferred_mic');
+  const micConstraint = (prefMic && prefMic !== 'default' && prefMic !== 'system')
+    ? { deviceId: { exact: prefMic }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraint });
   } catch (errAudioAdv) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (errAudio) {
-      console.warn('Hardware microphone unavailable or permission denied:', errAudio);
-      stream = new MediaStream();
-      try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          const actx = new AudioCtx();
-          const dst = actx.createMediaStreamDestination();
-          dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      // If hardware microphone was still busy releasing, wait 300ms and retry
+      if (errAudio.name === 'NotReadableError' || errAudio.name === 'AbortError') {
+        try {
+          await new Promise(res => setTimeout(res, 300));
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (retryErr) {
+          console.warn('Microphone retry failed:', retryErr);
         }
-      } catch (e) {}
+      }
+
+      if (!stream) {
+        console.warn('Hardware microphone unavailable or permission denied:', errAudio);
+        stream = new MediaStream();
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            const actx = new AudioCtx();
+            const dst = actx.createMediaStreamDestination();
+            dst.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+          }
+        } catch (e) {}
+      }
     }
   }
 
@@ -658,6 +699,7 @@ function ActiveRoomPage({
   initialMicOn = true,
   initialVideoOn = true,
   initialBlurBackground = false,
+  initialStream = null,
 }) {
   const isInstructor = user?.role === 'instructor';
 
@@ -838,16 +880,19 @@ function ActiveRoomPage({
   const [isParticipantsMenuOpen, setIsParticipantsMenuOpen] = useState(false);
 
   const [availableMics, setAvailableMics] = useState([
-    { deviceId: 'default', label: 'Microphone Array (Realtek(R) Audio)' },
-    { deviceId: 'system', label: 'Same as system (Microphone Array (Realtek(R) Audio))' }
+    { deviceId: 'default', label: 'Microphone Array (Default)' }
   ]);
-  const [selectedMicId, setSelectedMicId] = useState('default');
+  const [selectedMicId, setSelectedMicId] = useState(() => {
+    return localStorage.getItem('synclearn_preferred_mic') || 'default';
+  });
 
   const [availableSpeakers, setAvailableSpeakers] = useState([
-    { deviceId: 'system', label: 'Same as system (Speakers (Realtek(R) Audio))' },
-    { deviceId: 'speakers', label: 'Speakers (Realtek(R) Audio)' }
+    { deviceId: 'default', label: 'Speakers (Default)' }
   ]);
-  const [selectedSpeakerId, setSelectedSpeakerId] = useState('system');
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState(() => {
+    return localStorage.getItem('synclearn_preferred_speaker') || 'default';
+  });
+  const [micPermissionBlocked, setMicPermissionBlocked] = useState(false);
 
   const [micMode, setMicMode] = useState('noise-removal');
 
@@ -937,26 +982,86 @@ function ActiveRoomPage({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
+  const handleSwitchMicrophone = async (newMicId) => {
+    setSelectedMicId(newMicId);
+    try {
+      localStorage.setItem('synclearn_preferred_mic', newMicId);
+      const audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: newMicId && newMicId !== 'default' && newMicId !== 'system'
+          ? { deviceId: { exact: newMicId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      const newAudioTrack = audioStream.getAudioTracks()[0];
+      if (newAudioTrack) {
+        newAudioTrack.enabled = micOn;
+        if (userStreamRef.current) {
+          userStreamRef.current.getAudioTracks().forEach(t => {
+            try { t.stop(); } catch (e) {}
+            userStreamRef.current.removeTrack(t);
+          });
+          userStreamRef.current.addTrack(newAudioTrack);
+        }
+        peersRef.current.forEach(p => {
+          try {
+            const sender = p.peer?._pc?.getSenders()?.find(s => (s.track && s.track.kind === 'audio') || s.kind === 'audio');
+            if (sender) sender.replaceTrack(newAudioTrack);
+          } catch (e) {}
+        });
+        setUserStream(new MediaStream(userStreamRef.current.getTracks()));
+        const label = availableMics.find(m => m.deviceId === newMicId)?.label || 'Microphone';
+        showToast(`🎙️ Switched to ${label}`);
+      }
+    } catch (err) {
+      console.warn('Switch mic error:', err);
+      showToast('⚠️ Could not switch microphone.');
+    }
+  };
+
+  const handleSwitchSpeaker = async (newSpeakerId) => {
+    setSelectedSpeakerId(newSpeakerId);
+    try {
+      localStorage.setItem('synclearn_preferred_speaker', newSpeakerId);
+      const allAudioEls = document.querySelectorAll('audio, video');
+      allAudioEls.forEach(el => {
+        if (typeof el.setSinkId === 'function') {
+          el.setSinkId(newSpeakerId === 'default' || newSpeakerId === 'system' ? '' : newSpeakerId).catch(() => {});
+        }
+      });
+      const label = availableSpeakers.find(s => s.deviceId === newSpeakerId)?.label || 'Speaker';
+      showToast(`🔊 Output set to ${label}`);
+    } catch (err) {
+      console.warn('Switch speaker error:', err);
+    }
+  };
+
   const handleTestAudioAndMic = () => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(440, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.25);
-        gain.gain.setValueAtTime(0.25, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.55);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.55);
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        const step = 0.16;
+        const now = ctx.currentTime;
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * step);
+          gain.gain.setValueAtTime(0.3, now + idx * step);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * step + step + 0.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + idx * step);
+          osc.stop(now + idx * step + step + 0.2);
+        });
+        setTimeout(() => {
+          try { ctx.close(); } catch(e) {}
+        }, 1200);
       }
     } catch (e) {
-      console.warn('AudioContext notice:', e);
+      console.warn('Audio test error:', e);
     }
-    showToast('🔊 Audio chime played! Speaker and microphone test passed.');
+    showToast('🔊 Audio chime played! Speaker and microphone working.');
     setIsAudioMenuOpen(false);
   };
 
@@ -1096,7 +1201,11 @@ function ActiveRoomPage({
     const cleanRoom = cleanRoomId(roomId);
     let currentStream = null;
 
-    acquireMediaStream(user?.name, isInstructor).then(({ stream, hasRealVideo }) => {
+    const mediaPromise = (initialStream && initialStream.getTracks && initialStream.getTracks().length > 0)
+      ? Promise.resolve({ stream: initialStream, hasRealVideo: initialStream.getVideoTracks().length > 0 })
+      : acquireMediaStream(user?.name, isInstructor);
+
+    mediaPromise.then(({ stream, hasRealVideo }) => {
       currentStream = stream;
       userStreamRef.current = stream;
       setUserStream(stream);
@@ -2184,6 +2293,7 @@ function ActiveRoomPage({
             });
 
             setUserStream(new MediaStream(userStreamRef.current.getTracks()));
+            setMicPermissionBlocked(false);
             setMicOn(true);
             socket.emit('media-state-change', { roomId: cleanRoomId(roomId), videoOn, micOn: true });
             showToast('🎤 Microphone is live!');
@@ -2191,6 +2301,7 @@ function ActiveRoomPage({
           }
         } catch (err) {
           console.warn('Microphone permission or hardware error:', err);
+          setMicPermissionBlocked(true);
           showToast('⚠️ Microphone permission required. Please allow mic.');
           return;
         }
@@ -2449,6 +2560,83 @@ function ActiveRoomPage({
           <div className="toast-content">
             <span className="toast-icon">{toast.type === 'error' ? '⚠️' : '✅'}</span>
             <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Microphone Blocked Helper Banner / Modal ── */}
+      {micPermissionBlocked && (
+        <div style={{
+          position: 'fixed',
+          top: 64,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 99999,
+          maxWidth: 440,
+          width: '92%',
+          background: '#18181b',
+          color: '#f8fafc',
+          border: '1.5px solid #ef4444',
+          borderRadius: 12,
+          padding: '14px 18px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: 6, color: '#f87171' }}>
+              🔒 Microphone Access Blocked
+            </span>
+            <button
+              type="button"
+              onClick={() => setMicPermissionBlocked(false)}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
+          <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.4, margin: '0 0 10px 0' }}>
+            Your browser blocked microphone access. To allow your voice:
+          </p>
+          <ol style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 12px 18px', padding: 0, lineHeight: 1.5 }}>
+            <li>Tap the <strong>🔒 Lock icon</strong> next to the web address at the top of your screen.</li>
+            <li>Tap <strong>Permissions</strong> → <strong>Microphone</strong> → Select <strong>Allow</strong>.</li>
+            <li>Tap the button below to turn on your mic.</li>
+          </ol>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => setMicPermissionBlocked(false)}
+              style={{
+                background: '#27272a',
+                color: '#94a3b8',
+                border: '1px solid #3f3f46',
+                borderRadius: 6,
+                padding: '6px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Dismiss
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMicPermissionBlocked(false);
+                toggleMic();
+              }}
+              style={{
+                background: '#22c55e',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '6px 16px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🔄 Try Again
+            </button>
           </div>
         </div>
       )}
@@ -3844,8 +4032,7 @@ function ActiveRoomPage({
                   type="button"
                   className={`zoom-menu-item ${selectedMicId === m.deviceId ? 'checked' : ''}`}
                   onClick={() => {
-                    setSelectedMicId(m.deviceId);
-                    showToast(`🎙️ Microphone: ${m.label}`);
+                    handleSwitchMicrophone(m.deviceId);
                   }}
                 >
                   <span className="item-text">{m.label}</span>
@@ -3862,8 +4049,7 @@ function ActiveRoomPage({
                   type="button"
                   className={`zoom-menu-item ${selectedSpeakerId === s.deviceId ? 'checked' : ''}`}
                   onClick={() => {
-                    setSelectedSpeakerId(s.deviceId);
-                    showToast(`🔊 Speaker: ${s.label}`);
+                    handleSwitchSpeaker(s.deviceId);
                   }}
                 >
                   <span className="item-text">{s.label}</span>
@@ -3921,11 +4107,11 @@ function ActiveRoomPage({
                 type="button"
                 className="zoom-menu-item action-item"
                 onClick={() => {
-                  showToast('Audio Settings: Echo cancellation & auto gain active.');
                   setIsAudioMenuOpen(false);
+                  if (onOpenSettings) onOpenSettings('audio');
                 }}
               >
-                <span className="item-text">Audio settings</span>
+                <span className="item-text">Audio settings...</span>
               </button>
             </div>
           )}
