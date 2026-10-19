@@ -559,6 +559,7 @@ const syncHandler = (io, socket) => {
 
   // ── WebRTC Signaling ──
   socket.on('sending-signal', (payload) => {
+    console.log(`📡 Signal (Offer) from ${payload.callerID} to ${payload.userToSignal}`);
     io.to(payload.userToSignal).emit('user-joined', {
       signal: payload.signal,
       callerID: payload.callerID,
@@ -566,6 +567,7 @@ const syncHandler = (io, socket) => {
   });
 
   socket.on('returning-signal', (payload) => {
+    console.log(`📡 Signal (Answer) from ${socket.id} to ${payload.callerID}`);
     io.to(payload.callerID).emit('receiving-returned-signal', {
       signal: payload.signal,
       id: socket.id,

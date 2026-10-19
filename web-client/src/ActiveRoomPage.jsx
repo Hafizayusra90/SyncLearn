@@ -23,7 +23,6 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
 
   const audioCtxRef = useRef(null);
   const sourceNodeRef = useRef(null);
-  const gainNodeRef = useRef(null);
 
   useEffect(() => {
     let animId;
@@ -31,17 +30,16 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     const setupStream = (stream) => {
       if (!stream) return;
 
-      if (videoRef.current) {
+      if (videoRef.current && videoRef.current.srcObject !== stream) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
+        videoRef.current.play().catch(err => console.warn('Remote video play notice:', err));
       }
 
-      if (audioRef.current) {
+      if (audioRef.current && audioRef.current.srcObject !== stream) {
         audioRef.current.srcObject = stream;
         audioRef.current.volume = Math.max(0, Math.min(1, peerVolume / 100));
         audioRef.current.muted = false;
         
-        // Apply preferred speaker if setSinkId is supported
         try {
           const prefSpeaker = localStorage.getItem('synclearn_preferred_speaker');
           if (prefSpeaker && prefSpeaker !== 'default' && typeof audioRef.current.setSinkId === 'function') {
@@ -54,31 +52,26 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           playPromise
             .then(() => setAudioBlocked(false))
             .catch(err => {
-              console.warn('Audio playback waiting for user touch/click:', err);
+              console.warn('Audio playback waiting for user tap:', err);
               setAudioBlocked(true);
             });
         }
       }
 
-      // Live voice detection & Direct Hardware Speaker Output via Web Audio API
+      // Live voice detection (Web Audio Analyser for speaking indicator)
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx && stream.getAudioTracks().length > 0) {
-          const ctx = (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state !== 'closed')
-            ? window.__synclearnGlobalAudioCtx
-            : (!audioCtxRef.current || audioCtxRef.current.state === 'closed' ? new AudioCtx() : audioCtxRef.current);
-          audioCtxRef.current = ctx;
-
+          if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+            audioCtxRef.current = new AudioCtx();
+          }
+          const ctx = audioCtxRef.current;
           if (ctx.state === 'suspended') {
-            ctx.resume().then(() => setAudioBlocked(false)).catch(() => {});
+            ctx.resume().catch(() => {});
           }
 
-          // Disconnect any existing nodes if stream is being re-initialized
           if (sourceNodeRef.current) {
             try { sourceNodeRef.current.disconnect(); } catch (e) {}
-          }
-          if (gainNodeRef.current) {
-            try { gainNodeRef.current.disconnect(); } catch (e) {}
           }
           if (animId) {
             cancelAnimationFrame(animId);
@@ -88,25 +81,9 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
           analyser.fftSize = 128;
           analyser.smoothingTimeConstant = 0.3;
 
-          // Connect stream to analyser for live speaking detection
           const source = ctx.createMediaStreamSource(stream);
           sourceNodeRef.current = source;
           source.connect(analyser);
-
-          // Route directly to device hardware speakers via GainNode for real-time sound output
-          const gainNode = ctx.createGain();
-          gainNode.gain.value = Math.max(0, Math.min(1, peerVolume / 100));
-          gainNodeRef.current = gainNode;
-          source.connect(gainNode);
-          gainNode.connect(ctx.destination);
-
-          // Set sink ID on AudioContext if supported
-          try {
-            const prefSpeaker = localStorage.getItem('synclearn_preferred_speaker');
-            if (prefSpeaker && prefSpeaker !== 'default' && typeof ctx.setSinkId === 'function') {
-              ctx.setSinkId(prefSpeaker).catch(() => {});
-            }
-          } catch (e) {}
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
           const detectVoice = () => {
@@ -120,14 +97,9 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
             animId = requestAnimationFrame(detectVoice);
           };
           detectVoice();
-          setAudioBlocked(false);
         }
       } catch (e) {
-        console.warn('Remote audio analyser & speaker routing error:', e);
-        if (audioRef.current) {
-          audioRef.current.muted = false;
-          audioRef.current.play().then(() => setAudioBlocked(false)).catch(() => setAudioBlocked(true));
-        }
+        console.warn('Voice level analyser notice:', e);
       }
     };
 
@@ -135,22 +107,6 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
     peer.on('track', (track, stream) => {
       if (stream) setupStream(stream);
     });
-
-    // Also hook directly into underlying RTCPeerConnection if available
-    try {
-      const pc = peer?._pc;
-      if (pc) {
-        pc.ontrack = (event) => {
-          if (event.streams && event.streams[0]) {
-            setupStream(event.streams[0]);
-          }
-        };
-        const remoteStreams = pc.getRemoteStreams ? pc.getRemoteStreams() : [];
-        if (remoteStreams && remoteStreams[0]) {
-          setupStream(remoteStreams[0]);
-        }
-      }
-    } catch (e) {}
 
     if (peer._remoteStreams?.[0]) {
       setupStream(peer._remoteStreams[0]);
@@ -164,35 +120,21 @@ const RemoteVideo = ({ peer, peerInfo, mediaState }) => {
         try { sourceNodeRef.current.disconnect(); } catch (e) {}
         sourceNodeRef.current = null;
       }
-      if (gainNodeRef.current) {
-        try { gainNodeRef.current.disconnect(); } catch (e) {}
-        gainNodeRef.current = null;
-      }
-      if (audioCtxRef.current && audioCtxRef.current !== window.__synclearnGlobalAudioCtx && audioCtxRef.current.state !== 'closed') {
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         try { audioCtxRef.current.close(); } catch(e) {}
       }
     };
   }, [peer]);
 
-  // Adjust volume dynamically across HTML Audio and Web Audio gain node
+  // Adjust volume dynamically
   useEffect(() => {
     const vol = Math.max(0, Math.min(1, peerVolume / 100));
     if (audioRef.current) {
       audioRef.current.volume = vol;
     }
-    if (gainNodeRef.current) {
-      try {
-        gainNodeRef.current.gain.value = vol;
-      } catch (e) {}
-    }
   }, [peerVolume]);
 
   const handleUnblockAudio = () => {
-    try {
-      if (window.__synclearnGlobalAudioCtx && window.__synclearnGlobalAudioCtx.state === 'suspended') {
-        window.__synclearnGlobalAudioCtx.resume().catch(() => {});
-      }
-    } catch (e) {}
     if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => {});
     }
@@ -1222,11 +1164,46 @@ function ActiveRoomPage({
     const cleanRoom = cleanRoomId(roomId);
     let currentStream = null;
 
-    const mediaPromise = (initialStream && initialStream.getTracks && initialStream.getTracks().length > 0)
-      ? Promise.resolve({ stream: initialStream, hasRealVideo: initialStream.getVideoTracks().length > 0 })
-      : acquireMediaStream(user?.name, isInstructor);
+    const resolveStream = async () => {
+      let stream = initialStream;
+      let hasRealVideo = false;
 
-    mediaPromise.then(({ stream, hasRealVideo }) => {
+      if (!stream || !stream.getTracks || stream.getTracks().length === 0) {
+        const acquired = await acquireMediaStream(user?.name, isInstructor);
+        stream = acquired.stream;
+        hasRealVideo = acquired.hasRealVideo;
+      } else {
+        hasRealVideo = stream.getVideoTracks().length > 0;
+      }
+
+      // Guarantee at least 1 audio track so audio transceiver always negotiates
+      if (stream.getAudioTracks().length === 0) {
+        try {
+          const actx = new (window.AudioContext || window.webkitAudioContext)();
+          const dst = actx.createMediaStreamDestination();
+          const silentAudio = dst.stream.getAudioTracks()[0];
+          if (silentAudio) stream.addTrack(silentAudio);
+        } catch(e) {}
+      }
+
+      // Guarantee at least 1 video track so video transceiver always negotiates
+      if (stream.getVideoTracks().length === 0) {
+        try {
+          const canvasStream = createFallbackStream(user?.name, isInstructor);
+          if (canvasStream) {
+            const vTrack = canvasStream.getVideoTracks()[0];
+            if (vTrack) {
+              vTrack.enabled = Boolean(initialVideoOn);
+              stream.addTrack(vTrack);
+            }
+          }
+        } catch(e) {}
+      }
+
+      return { stream, hasRealVideo };
+    };
+
+    resolveStream().then(({ stream, hasRealVideo }) => {
       currentStream = stream;
       userStreamRef.current = stream;
       setUserStream(stream);
